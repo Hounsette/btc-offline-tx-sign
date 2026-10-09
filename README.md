@@ -49,4 +49,5 @@ Every `make` target runs cargo with `--locked`, so builds use exactly the depend
 
 - [Technical Specification](Docs/Technical_Specification.md): what the signer does and its security safeguards
 - [Coding Style Guide](Docs/Coding_Style.md): how the code is written (test-first, readability, lint rules)
+- [Roadmap](Docs/Roadmap.md): incremental milestones, deliverables (`BTCSIGN-XXX`) and the tests for each
 - [Decisions](Docs/Decisions.md): open points in the spec, with the answer the roadmap assumes for each
