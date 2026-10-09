@@ -30,7 +30,8 @@ This file is generated on an online machine and brought to the offline signer. I
     {
       "txid": "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16",
       "vout": 0,
-      "amount_sats": 100000
+      "amount_sats": 100000,
+      "pubkey": "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
     }
   ],
   "outputs": [
@@ -43,22 +44,25 @@ This file is generated on an online machine and brought to the offline signer. I
 }
 ```
 
+Each input names the compressed public key that owns it (`pubkey`, hex). The signer uses it to select the matching private key from the keystore.
+
 ### 3.2. The Keystore
 
 The cryptographic secrets reside permanently on the offline machine. Using the BIP38 standard demonstrates deep Bitcoin ecosystem knowledge.
 
-- The application requires a local configuration file (e.g., `keys.txt`) containing the BIP38 encrypted string (starting with `6P...`).
+- The application reads a local keystore file, `keys.txt` by default (`--keystore` selects another file). Each line holds one key: the compressed public key in hex, a space, and the BIP38 encrypted string (starting with `6P...`).
 - The raw Wallet Import Format (WIF) key is never stored on disk in plaintext.
+- A later increment may replace `keys.txt` with a dedicated keystore. Inputs keep selecting keys by public key.
 
 ## 4. Core Execution Flow
 
-1. **Parse Arguments:** `clap` parses the paths to `params.json` and the local keystore file.
+1. **Parse Arguments:** `clap` parses the path to `params.json` and, optionally, the keystore file (default `keys.txt`).
 2. **Strict Deserialization:** Read `params.json` into typed Rust structs, applying security boundaries (see [Section 5](#5-security--anti-dos-safeguards)).
 3. **Construct Unsigned Transaction:** Map inputs to `bitcoin::TxIn` and outputs to `bitcoin::TxOut` (resolving `ScriptPubkey`).
 4. **Secure Key Decryption:**
-   - Read the BIP38 string from the local keystore.
-   - Prompt the user for the decryption passphrase via `rpassword` (terminal echo disabled).
-   - Derive the WIF private key in memory.
+   - Read the keystore and find the BIP38 string for each public key named by the inputs.
+   - For each key, prompt the user for its decryption passphrase via `rpassword` (terminal echo disabled).
+   - Derive the WIF private key in memory and check that its public key matches.
 5. **Sign Transaction:** Generate Sighashes and apply signatures to the witness or `scriptSig` data.
 6. **Zeroize Secrets:** Immediately overwrite the derived private key in memory.
 7. **Output Hex:** Print the serialized `bitcoin::Transaction` to stdout for the user to copy.
