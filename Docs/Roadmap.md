@@ -64,13 +64,15 @@ BTCSIGN-011 and 012 depend only on the crate itself, so they can be built alongs
 ### BTCSIGN-001: CI pipeline and static release build
 
 **Scope:**
+- `rust-toolchain.toml` pins Rust 1.98.1 with `clippy`, `rustfmt`, and the musl target (D28), so rustup installs the same toolchain on every machine, CI included.
 - `make build` builds the release binary for `x86_64-unknown-linux-musl`, so the binary carries every library it needs (D28).
 - `.github/workflows/ci.yml` runs `make`, `make build`, and `cargo audit` for every push and pull request. CI fails if the binary isn't statically linked (checked with `file`).
-- The README's prerequisites gain the musl setup (`rustup target add x86_64-unknown-linux-musl` and the `musl-tools` package), and its build section names the new binary path.
+- The README's prerequisites become rustup and the `musl-tools` package, because the toolchain file covers the rest. Its build section names the new binary path.
 
 **Manual check:**
 - Push a throwaway branch with a formatting error: CI fails. Fix it: CI passes.
 - On the build machine, `ldd` on the built binary lists no shared libraries.
+- Inside the repository, `rustc --version` prints 1.98.1.
 
 ### BTCSIGN-002: CLI skeleton and output rules
 

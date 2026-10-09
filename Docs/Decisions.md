@@ -26,7 +26,7 @@ The table is sorted by the first deliverable that needs each answer.
 
 | ID | Decision | Status | Needed by |
 |---|---|---|---|
-| D28 | Target platform and toolchain | Partly decided | BTCSIGN-001 |
+| D28 | Target platform and toolchain | Decided | BTCSIGN-001 |
 | D30 | Repository host, branch, visibility, license | Open | BTCSIGN-001 |
 | D7 | `keys.txt` name and format | Partly decided | BTCSIGN-002 |
 | D19 | CLI arguments and keystore location | Proposed | BTCSIGN-002 |
@@ -305,11 +305,11 @@ The signer only reads keys. Something must create each key, encrypt it with BIP3
 
 ### D28: Target platform and toolchain
 
-**Status:** Partly decided (only the toolchain pin is still open) · **Needed by:** BTCSIGN-001
+**Status:** Decided · **Needed by:** BTCSIGN-001
 
 - **Decided (2026-10-09):** the offline machine is a standard Linux PC with an x86_64 CPU.
 - **Decided (2026-10-09):** the release binary is built for `x86_64-unknown-linux-musl`. It carries every library it needs, so it runs on the offline machine whatever Linux version that machine has (explained below). `make build` and CI produce this binary from BTCSIGN-001 on, so a dependency that doesn't build for musl fails the day it's added, not at release time.
-- **Proposed:** pin the Rust version in `rust-toolchain.toml` so every build, including CI, uses the same compiler. Reproducible builds (D29) depend on this too.
+- **Decided (2026-10-09):** pin Rust **1.98.1** in `rust-toolchain.toml`, so every build, including CI, uses the same compiler. Reproducible builds (D29) depend on this too. The reasons and the upgrade rule are below.
 
 **Why a static binary.** A Rust program built for Linux the usual way (the `x86_64-unknown-linux-gnu` target) doesn't include the C standard library, glibc. Instead, it loads the copy installed on the machine that runs it, and that copy must be at least as new as the one it was built against. The binary is built on the online machine and copied to the offline one (see "Building for the offline machine" in the README), so the two machines' glibc versions must be compatible:
 
@@ -323,6 +323,33 @@ The musl target builds a different C library, musl, into the binary itself. The 
 - Fixes to glibc from OS updates don't reach the binary, so a fix needs a new release. The offline machine isn't updated anyway, so in practice nothing changes.
 
 **Considered and rejected:** keeping the default target and building on the same Linux distribution and version as the offline machine, for example in a container. It works, but the two have to be kept in step for as long as the signer is used.
+
+**Why Rust 1.98.1.** Rust has no long-term-support release. Fixes go only into new releases and are never backported to old ones. So the safest pin is the newest release that has had time for its own fixes to arrive. As of 2026-10-09:
+
+| Version | Released | Verdict |
+|---|---|---|
+| 1.95.0 (installed on the build machine today) | 2026-04-16 | Unsafe. It has an LLVM miscompilation, present since at least 1.87 and fixed in 1.97.1. Its Cargo also lacks the fixes for CVE-2026-5222 and CVE-2026-5223 (fixed in 1.96; these affect third-party registries only) and for the libssh2 CVEs fixed in 1.96.1. |
+| 1.98.0 | 2026-08-20 | Unsafe. In some cases it builds a trait object's vtable with a null pointer, which is undefined behavior. Error handling relies on trait objects (`dyn Error`). Fixed in 1.98.1. |
+| **1.98.1** | 2026-09-03 | **Chosen.** It contains every fix listed above, and in five weeks no further point release has been needed. |
+| 1.99.0 | 2026-10-01 | Too new. Four of the last five releases (1.94, 1.96, 1.97, 1.98) needed a point release 1 to 5 weeks after launch, three of them to fix miscompilations. Its announcement lists no security fixes, so staying on 1.98.1 misses nothing. |
+
+**The toolchain file:**
+
+```toml
+[toolchain]
+channel = "1.98.1"
+profile = "minimal"
+components = ["clippy", "rustfmt"]
+targets = ["x86_64-unknown-linux-musl"]
+```
+
+In this repository, rustup reads this file and installs exactly this version with these components and the musl target, on developer machines and in CI alike. `musl-tools` still comes from the system package manager.
+
+**Upgrade rule:**
+- Pin the latest point release of the previous minor version. When 1.100.0 ships (expected around 2026-11-12, six weeks after 1.99.0), move to the latest 1.99.x.
+- If a release fixes a security issue that affects this project, move to it straight away.
+- Watch [the Rust release announcements](https://blog.rust-lang.org/releases) for both.
+- Make each upgrade its own commit (`Build: Update Rust to 1.xx.y`) and run `make` and `make build`. The BTCSIGN-010 expected-hex tests also catch a compiler that miscompiles the signing code.
 
 ### D29: Release integrity
 
