@@ -26,7 +26,7 @@ The table is sorted by the first deliverable that needs each answer.
 
 | ID | Decision | Status | Needed by |
 |---|---|---|---|
-| D28 | Target platform and toolchain | Open | BTCSIGN-001 |
+| D28 | Target platform and toolchain | Partly decided | BTCSIGN-001 |
 | D30 | Repository host, branch, visibility, license | Open | BTCSIGN-001 |
 | D7 | `keys.txt` name and format | Partly decided | BTCSIGN-002 |
 | D19 | CLI arguments and keystore location | Proposed | BTCSIGN-002 |
@@ -305,12 +305,24 @@ The signer only reads keys. Something must create each key, encrypt it with BIP3
 
 ### D28: Target platform and toolchain
 
-**Status:** Open · **Needed by:** BTCSIGN-001 (toolchain), BTCSIGN-016 (release build)
+**Status:** Partly decided (only the toolchain pin is still open) · **Needed by:** BTCSIGN-001
 
-- **Open:** which operating system and CPU does the offline machine run?
-- **Proposed, if it's Linux on x86_64:**
-  - Build a static binary (`x86_64-unknown-linux-musl`) so it doesn't depend on the offline machine's glibc version.
-  - Pin the Rust version in `rust-toolchain.toml` so every build, including CI, uses the same compiler.
+- **Decided (2026-10-09):** the offline machine is a standard Linux PC with an x86_64 CPU.
+- **Decided (2026-10-09):** the release binary is built for `x86_64-unknown-linux-musl`. It carries every library it needs, so it runs on the offline machine whatever Linux version that machine has (explained below). `make build` and CI produce this binary from BTCSIGN-001 on, so a dependency that doesn't build for musl fails the day it's added, not at release time.
+- **Proposed:** pin the Rust version in `rust-toolchain.toml` so every build, including CI, uses the same compiler. Reproducible builds (D29) depend on this too.
+
+**Why a static binary.** A Rust program built for Linux the usual way (the `x86_64-unknown-linux-gnu` target) doesn't include the C standard library, glibc. Instead, it loads the copy installed on the machine that runs it, and that copy must be at least as new as the one it was built against. The binary is built on the online machine and copied to the offline one (see "Building for the offline machine" in the README), so the two machines' glibc versions must be compatible:
+
+- The current build machine runs Ubuntu with glibc 2.39. Even today's empty `main()` needs glibc 2.34 or newer (`objdump -T target/release/btc-offline-signer`). It therefore won't start on Debian 11 or Ubuntu 20.04, which have glibc 2.31, and fails with `version 'GLIBC_2.34' not found`.
+- The build machine gets updated and the offline machine doesn't, so the gap only grows.
+
+The musl target builds a different C library, musl, into the binary itself. The result doesn't depend on any library installed on the offline machine, so it runs on any Linux with the same CPU type, whatever the distribution or version.
+
+**Costs:**
+- The build machine needs the target (`rustup target add x86_64-unknown-linux-musl`) and a musl C compiler (the `musl-tools` package on Debian and Ubuntu), because the `secp256k1` crate compiles C code. Neither is installed on the current build machine.
+- Fixes to glibc from OS updates don't reach the binary, so a fix needs a new release. The offline machine isn't updated anyway, so in practice nothing changes.
+
+**Considered and rejected:** keeping the default target and building on the same Linux distribution and version as the offline machine, for example in a container. It works, but the two have to be kept in step for as long as the signer is used.
 
 ### D29: Release integrity
 

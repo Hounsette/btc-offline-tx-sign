@@ -26,7 +26,7 @@ The spec leaves many points open. [Decisions.md](Decisions.md) lists every one o
 
 | Milestone | Deliverables | What works at the end |
 |---|---|---|
-| M1. Foundation | 001–002 | CI runs `make`. The binary reads `--params` (and `--keystore`, which defaults to `keys.txt`) and keeps its stdout and exit-code rules. |
+| M1. Foundation | 001–002 | CI runs `make` and builds the static release binary. The binary reads `--params` (and `--keystore`, which defaults to `keys.txt`) and keeps its stdout and exit-code rules. |
 | M2. Intent payload | 003–008 | The CLI rejects every malformed or unsafe `params.json` (spec §5.1, §5.2). |
 | M3. Transaction | 009–010 | Code-level tests build and sign transactions with test keys, matching a known-correct hex. |
 | M4. Keystore & pipeline | 011–013 | End to end: `params.json` + `keys.txt` + passphrases → signed hex on stdout. |
@@ -38,7 +38,7 @@ The spec leaves many points open. [Decisions.md](Decisions.md) lists every one o
 
 | ID | Title | Depends on |
 |---|---|---|
-| BTCSIGN-001 | CI pipeline | — |
+| BTCSIGN-001 | CI pipeline and static release build | — |
 | BTCSIGN-002 | CLI skeleton and output rules | — |
 | BTCSIGN-003 | Bounded params read | — |
 | BTCSIGN-004 | Strict JSON parsing | 003 |
@@ -61,12 +61,16 @@ BTCSIGN-011 and 012 depend only on the crate itself, so they can be built alongs
 
 ## 5. M1: Foundation
 
-### BTCSIGN-001: CI pipeline
+### BTCSIGN-001: CI pipeline and static release build
 
-**Scope:** `.github/workflows/ci.yml` runs `make` and `cargo audit` on stable Rust (with `clippy` and `rustfmt`) for every push and pull request.
+**Scope:**
+- `make build` builds the release binary for `x86_64-unknown-linux-musl`, so the binary carries every library it needs (D28).
+- `.github/workflows/ci.yml` runs `make`, `make build`, and `cargo audit` for every push and pull request. CI fails if the binary isn't statically linked (checked with `file`).
+- The README's prerequisites gain the musl setup (`rustup target add x86_64-unknown-linux-musl` and the `musl-tools` package), and its build section names the new binary path.
 
 **Manual check:**
 - Push a throwaway branch with a formatting error: CI fails. Fix it: CI passes.
+- On the build machine, `ldd` on the built binary lists no shared libraries.
 
 ### BTCSIGN-002: CLI skeleton and output rules
 
@@ -297,7 +301,7 @@ BIP38 decryption runs scrypt, which is slow in debug builds. If the test suite s
 
 **Scope:**
 - Update the README with usage (`--params`, `--keystore`), the params format (link to spec §3.1), the `keys.txt` format, the offline workflow, and the testnet proof link. Remove "The signer is not functional yet."
-- Run `make build` and `cargo audit` on a fresh clone, then tag `v0.1.0`.
+- Run `make build` and `cargo audit` on a fresh clone, then tag `v0.1.0`. The release binary is the static musl build from `make build` (D28).
 - Publish the SHA-256 hash of the release binary.
 - State in the README that v0.1.0 is for testnet only, until BTCSIGN-017 verifies input amounts (D12).
 
