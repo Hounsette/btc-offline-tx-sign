@@ -14,21 +14,21 @@ fn accepts_specification_fixture() {
     let payment = parse_ok(fixture());
 
     assert_eq!(
-        payment.outpoint.to_string(),
+        payment.outpoint().to_string(),
         "71e3be4e5b89d4263d5902a50180ea5b660a3af3ee8894aaa024ec0f2391a0f6:0"
     );
-    assert_eq!(payment.prev_output.value, Amount::from_sat(100_000));
+    assert_eq!(payment.prev_output().value, Amount::from_sat(100_000));
     assert_eq!(
-        payment.prev_output.script_pubkey.to_hex_string(),
+        payment.prev_output().script_pubkey.to_hex_string(),
         KEY_1_SCRIPT
     );
-    assert_eq!(payment.outputs.len(), 1);
-    assert_eq!(payment.outputs[0].value, Amount::from_sat(95_000));
+    assert_eq!(payment.outputs().len(), 1);
+    assert_eq!(payment.outputs()[0].value, Amount::from_sat(95_000));
     assert_eq!(
-        payment.outputs[0].script_pubkey.to_hex_string(),
+        payment.outputs()[0].script_pubkey.to_hex_string(),
         KEY_1_SCRIPT
     );
-    assert_eq!(payment.fee, Amount::from_sat(5_000));
+    assert_eq!(payment.fee(), Amount::from_sat(5_000));
 }
 
 #[test]
@@ -36,11 +36,11 @@ fn pays_the_requested_recipient() {
     let payment = parse_ok(fixture_with("/outputs/0/address", json!(RECIPIENT_ADDRESS)));
 
     assert_eq!(
-        payment.prev_output.script_pubkey.to_hex_string(),
+        payment.prev_output().script_pubkey.to_hex_string(),
         KEY_1_SCRIPT
     );
     assert_eq!(
-        payment.outputs[0].script_pubkey.to_hex_string(),
+        payment.outputs()[0].script_pubkey.to_hex_string(),
         RECIPIENT_SCRIPT
     );
 }
@@ -85,13 +85,13 @@ fn returns_amount_above_max_money_for_excessive_output() {
 fn accepts_maximum_money_amount() {
     let mut params = fixture_with_prev_tx(|prev_tx| prev_tx.output[0].value = Amount::MAX_MONEY);
     params["outputs"][0]["amount_sats"] = json!(Amount::MAX_MONEY.to_sat());
-    assert_eq!(parse_ok(params).fee, Amount::ZERO);
+    assert_eq!(parse_ok(params).fee(), Amount::ZERO);
 }
 
 #[test]
 fn returns_overspend_when_outputs_exceed_input() {
     let exact = parse_ok(fixture_with("/outputs/0/amount_sats", json!(100_000)));
-    assert_eq!(exact.fee, Amount::ZERO);
+    assert_eq!(exact.fee(), Amount::ZERO);
 
     assert!(matches!(
         parse_error(fixture_with("/outputs/0/amount_sats", json!(100_001))),
@@ -106,7 +106,7 @@ fn returns_fee_above_cap_when_fee_exceeds_limit() {
         fixture_with_prev_tx(|prev_tx| prev_tx.output[0].value = Amount::from_sat(2_000_000));
 
     params["outputs"][0]["amount_sats"] = json!(1_000_000);
-    assert_eq!(parse_ok(&params).fee, MAX_FEE);
+    assert_eq!(parse_ok(&params).fee(), MAX_FEE);
 
     params["outputs"][0]["amount_sats"] = json!(999_999);
     assert!(matches!(

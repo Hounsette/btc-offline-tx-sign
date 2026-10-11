@@ -11,10 +11,10 @@ Complete one working path before adding features. The [specification](Technical_
 
 ## BTCSIGN-002: Sign one input and one output
 
-- [ ] Build the transaction with the specified version, sequence, locktime, and output.
-- [ ] In tests, load a disposable key and match it to the previous-output script.
-- [ ] Compute the sighash, sign, construct the witness, and serialize using the library.
-- [ ] Check a published/reference signing hash, verify the signature independently, and round-trip the transaction. A changed output or wrong key must fail verification.
+- [x] Build the transaction with the specified version, sequence, locktime, and output.
+- [x] In tests, load a disposable key and match it to the previous-output script.
+- [x] Compute the sighash, sign, construct the witness, and serialize using the library.
+- [x] Check a published/reference signing hash, verify the signature independently, and round-trip the transaction. A changed output or wrong key must fail verification.
 
 ## BTCSIGN-003: Add explicit change
 

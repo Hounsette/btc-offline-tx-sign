@@ -24,10 +24,10 @@ fn accepts_segwit_prev_tx_and_nonzero_vout() {
     assert!(prev_tx.starts_with("020000000001"));
 
     let payment = parse_ok(&params);
-    assert_eq!(payment.outpoint.vout, 1);
-    assert_eq!(payment.prev_output.value, Amount::from_sat(100_000));
+    assert_eq!(payment.outpoint().vout, 1);
+    assert_eq!(payment.prev_output().value, Amount::from_sat(100_000));
     assert_eq!(
-        payment.prev_output.script_pubkey.to_hex_string(),
+        payment.prev_output().script_pubkey.to_hex_string(),
         KEY_1_SCRIPT
     );
 }
