@@ -75,7 +75,8 @@ fn read_key() -> io::Result<Zeroizing<String>> {
     // Prompt only once echo is off, so nothing typed is shown.
     let key =
         write!(io::stderr(), "Testnet WIF private key: ").and_then(|()| read_hidden_line(&stdin));
-    tcsetattr(&stdin, OptionalActions::Now, &original)?;
+    // Discard pasted input left after a newline or cancellation before the shell can read it.
+    tcsetattr(&stdin, OptionalActions::Flush, &original)?;
     writeln!(io::stderr())?;
     key
 }

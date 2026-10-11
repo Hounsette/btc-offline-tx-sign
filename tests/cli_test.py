@@ -98,6 +98,7 @@ def run_on_terminal(*typed, params=PARAMS):
         while chunk := read(master, 0.2):
             shown += chunk
         restored = termios.tcgetattr(slave) == before
+        assert not read(slave, 0), "unread terminal input would reach the shell"
         return child.returncode, stdout, shown.decode().replace("\r\n", "\n"), restored
     finally:
         os.close(master)
@@ -199,6 +200,20 @@ class Terminal(unittest.TestCase):
                 self.assertEqual(
                     type_key(keys), (1, b"", f"{KEY_ENTERED}error: signing cancelled\n", True)
                 )
+
+    def test_discards_unread_input_at_the_key_prompt(self):
+        key_line = f"{KEY_1_WIF}\n".encode()
+        for first, code, stdout, error in [
+            (b"\n", 1, b"", "private key is not a valid WIF"),
+            (b"\r", 1, b"", "private key is not a valid WIF"),
+            (b"\x03", 1, b"", "signing cancelled"),
+            (b"\x04", 1, b"", "signing cancelled"),
+            (key_line, 0, f"{SIGNED_HEX}\n".encode(), ""),
+        ]:
+            with self.subTest(first=first):
+                shown = KEY_ENTERED + (f"error: {error}\n" if error else "")
+                # Paste in one write so the second line is already queued when the first ends.
+                self.assertEqual(type_key(first + key_line), (code, stdout, shown, True))
 
     def test_cancels_at_the_confirmation(self):
         for keys, shown in [(b"no\n", "no\n"), (b"yes \n", "yes \n"), (b"\x04", "")]:
