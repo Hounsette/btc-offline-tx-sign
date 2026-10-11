@@ -6,7 +6,8 @@ use bitcoin::{Address, Amount, Txid};
 
 use super::{MAX_FEE, MAX_PARAMS_BYTES};
 
-/// Why a payload was rejected. Library details are in `source()`; report the whole chain.
+/// Why a payload was rejected. Library details are in `source()`; [`crate::Error`] shows the
+/// whole chain.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]

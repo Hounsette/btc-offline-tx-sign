@@ -6,7 +6,7 @@ use clap::Parser;
 use rustix::termios::{LocalModes, OptionalActions, SpecialCodeIndex, tcgetattr, tcsetattr};
 use zeroize::Zeroizing;
 
-use btc_offline_signer::cli;
+use btc_offline_signer::{Error, cli};
 
 /// WIF keys are 51 or 52 characters. Longer input is cut here, then fails validation.
 const MAX_KEY_LEN: usize = 128;
@@ -25,20 +25,27 @@ struct Args {
 
 fn main() -> ExitCode {
     let args = Args::parse();
-    let hex = match cli::run(&args.params, &mut io::stderr(), read_reply, read_key) {
-        Ok(hex) => hex,
-        Err(error) => {
-            eprintln!("error: {}", cli::report(&error));
-            return ExitCode::FAILURE;
-        }
-    };
-    // A failed write can leave part of the hex behind; callers discard stdout on failure.
-    let mut stdout = io::stdout().lock();
-    if let Err(error) = writeln!(stdout, "{hex}").and_then(|()| stdout.flush()) {
-        eprintln!("error: failed to write the signed transaction: {error}");
-        return ExitCode::FAILURE;
+    match cli::run(&args.params, &mut io::stderr(), read_reply, read_key)
+        .and_then(|hex| print(&hex))
+    {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => fail(&error),
     }
-    ExitCode::SUCCESS
+}
+
+/// The only place errors reach the terminal. Taking [`Error`] keeps every message escaped.
+#[expect(clippy::print_stderr, reason = "errors are printed only here")]
+fn fail(error: &Error) -> ExitCode {
+    eprintln!("error: {error}");
+    ExitCode::FAILURE
+}
+
+/// A failed write can leave part of the hex behind; callers discard stdout on failure.
+fn print(hex: &str) -> Result<(), Error> {
+    let mut stdout = io::stdout().lock();
+    writeln!(stdout, "{hex}")
+        .and_then(|()| stdout.flush())
+        .map_err(|error| cli::Error::WriteTransaction(error).into())
 }
 
 /// One line typed on the terminal; piped input cannot confirm.
@@ -66,10 +73,10 @@ fn read_key() -> io::Result<Zeroizing<String>> {
     hidden.special_codes[SpecialCodeIndex::VTIME] = 0;
     tcsetattr(&stdin, OptionalActions::Now, &hidden)?;
     // Prompt only once echo is off, so nothing typed is shown.
-    eprint!("Testnet WIF private key: ");
-    let key = read_hidden_line(&stdin);
+    let key =
+        write!(io::stderr(), "Testnet WIF private key: ").and_then(|()| read_hidden_line(&stdin));
     tcsetattr(&stdin, OptionalActions::Now, &original)?;
-    eprintln!();
+    writeln!(io::stderr())?;
     key
 }
 

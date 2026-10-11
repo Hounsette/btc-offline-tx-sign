@@ -2,7 +2,6 @@
 
 use std::fs::File;
 use std::io::{self, Write};
-use std::iter::successors;
 use std::path::{Path, PathBuf};
 
 use bitcoin::consensus::encode::serialize_hex;
@@ -12,13 +11,11 @@ use zeroize::Zeroizing;
 use crate::payload::{self, Payment};
 use crate::signing;
 
-/// Why nothing was signed. Print it with [`report`].
+/// Failures of the command-line flow itself. The CLI prints them as part of [`crate::Error`].
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("failed to open params file {}", .path.display())]
+    #[error("failed to open params file {path:?}")]
     OpenParams { path: PathBuf, source: io::Error },
-    #[error(transparent)]
-    Payload(#[from] payload::Error),
     #[error("terminal I/O failed")]
     Terminal(#[source] io::Error),
     #[error("signing cancelled")]
@@ -26,8 +23,8 @@ pub enum Error {
     // No source: base58 errors can quote characters of the key.
     #[error("private key is not a valid WIF")]
     InvalidKey,
-    #[error(transparent)]
-    Signing(#[from] signing::Error),
+    #[error("failed to write the signed transaction")]
+    WriteTransaction(#[source] io::Error),
 }
 
 /// Validates the payment in `params` and shows it on `terminal`. Once `read_reply` returns the
@@ -38,16 +35,16 @@ pub enum Error {
 ///
 /// # Errors
 ///
-/// Returns [`Error::OpenParams`] or [`Error::Payload`] before anything is shown,
+/// Returns [`Error::OpenParams`] or a [`payload::Error`] before anything is shown,
 /// [`Error::Terminal`] if a prompt cannot be shown or read, [`Error::Cancelled`] for any reply
-/// but `yes` or an interrupted key prompt, and [`Error::InvalidKey`] or [`Error::Signing`] if
+/// but `yes` or an interrupted key prompt, and [`Error::InvalidKey`] or a [`signing::Error`] if
 /// the key cannot spend the input.
 pub fn run(
     params: &Path,
     terminal: &mut impl Write,
     read_reply: impl FnOnce() -> io::Result<String>,
     read_key: impl FnOnce() -> io::Result<Zeroizing<String>>,
-) -> Result<String, Error> {
+) -> Result<String, crate::Error> {
     let file = File::open(params).map_err(|source| Error::OpenParams {
         path: params.to_owned(),
         source,
@@ -58,7 +55,7 @@ pub fn run(
     // A key pasted at the wrong prompt would land here.
     let reply = Zeroizing::new(read_reply().map_err(Error::Terminal)?);
     if !matches!(reply.as_str(), "yes\n" | "yes\r\n") {
-        return Err(Error::Cancelled);
+        return Err(Error::Cancelled.into());
     }
 
     let wif = read_key().map_err(|error| match error.kind() {
@@ -68,31 +65,12 @@ pub fn run(
     let mut key = PrivateKey::from_wif(&wif).map_err(|_| Error::InvalidKey)?;
     // `from_wif` ignores the compression marker's value; a canonical WIF re-encodes to itself.
     let signed = if *Zeroizing::new(key.to_wif()) == *wif {
-        signing::sign(&payment, &key).map_err(Error::from)
+        signing::sign(&payment, &key).map_err(crate::Error::from)
     } else {
-        Err(Error::InvalidKey)
+        Err(Error::InvalidKey.into())
     };
     key.inner.non_secure_erase();
     Ok(serialize_hex(&signed?))
-}
-
-/// `error` and its sources on one line. Control characters are escaped because messages can
-/// quote untrusted payload text; quotes and backslashes are left as formatted.
-pub fn report(error: &Error) -> String {
-    let chain = successors(Some(error as &dyn std::error::Error), |error| {
-        error.source()
-    })
-    .map(ToString::to_string)
-    .collect::<Vec<_>>()
-    .join(": ");
-    let mut escaped = String::with_capacity(chain.len());
-    for c in chain.chars() {
-        match c {
-            '"' | '\'' | '\\' => escaped.push(c),
-            c => escaped.extend(c.escape_debug()),
-        }
-    }
-    escaped
 }
 
 /// Shows the spent output, each destination, and the fee, then asks for confirmation.
