@@ -70,15 +70,56 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for Object<T> {
     }
 }
 
-/// A payment that passed validation.
+/// A payment that passed validation. Only [`parse`] creates one, and its private fields keep it
+/// from changing afterwards. Each example below must not compile; if rustdoc reports that one
+/// "compiled successfully", that field has become public.
+///
+/// ```compile_fail,E0616
+/// # fn spend_another_output(mut payment: btc_offline_signer::payload::Payment) {
+/// payment.outpoint.vout = 1;
+/// # }
+/// ```
+/// ```compile_fail,E0616
+/// # fn change_input_amount(mut payment: btc_offline_signer::payload::Payment) {
+/// payment.prev_output.value = bitcoin::Amount::MAX_MONEY;
+/// # }
+/// ```
+/// ```compile_fail,E0616
+/// # fn inflate_fee(mut payment: btc_offline_signer::payload::Payment) {
+/// payment.outputs[0].value = bitcoin::Amount::ONE_SAT;
+/// # }
+/// ```
+/// ```compile_fail,E0616
+/// # fn misreport_fee(mut payment: btc_offline_signer::payload::Payment) {
+/// payment.fee = bitcoin::Amount::ZERO;
+/// # }
+/// ```
 #[derive(Debug)]
 pub struct Payment {
-    pub outpoint: OutPoint,
+    outpoint: OutPoint,
+    prev_output: TxOut,
+    outputs: Vec<TxOut>,
+    fee: Amount,
+}
+
+impl Payment {
+    pub fn outpoint(&self) -> OutPoint {
+        self.outpoint
+    }
+
     /// Amount and P2WPKH script of the spent output, taken from the verified previous transaction.
-    pub prev_output: TxOut,
-    pub outputs: Vec<TxOut>,
+    pub fn prev_output(&self) -> &TxOut {
+        &self.prev_output
+    }
+
+    pub fn outputs(&self) -> &[TxOut] {
+        &self.outputs
+    }
+
     /// Input amount minus the output total.
-    pub fee: Amount,
+    pub fn fee(&self) -> Amount {
+        self.fee
+    }
 }
 
 /// Reads at most `MAX_PARAMS_BYTES` of JSON and validates the payment it describes.

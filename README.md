@@ -2,7 +2,7 @@
 
 A Rust CLI for creating a signed Bitcoin transaction without internet access. Built for the Coincheck interview assignment.
 
-**Status:** payload validation is implemented ([src/payload.rs](src/payload.rs)) and tested ([tests/payload/](tests/payload/)); it accepts one output until explicit change is added. Signing, the CLI, and broadcast proof are not implemented yet.
+**Status:** payload validation ([src/payload.rs](src/payload.rs)) and signing ([src/signing.rs](src/signing.rs)) are implemented and tested ([tests/](tests/)); they accept one output until explicit change is added. The CLI and broadcast proof are not implemented yet.
 
 ## Assignment
 
