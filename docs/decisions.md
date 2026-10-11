@@ -1,6 +1,6 @@
 # Design Decisions
 
-Scope revised on 2026-10-11. Earlier production-oriented decisions are preserved in commit `ca9c856`; this document supersedes them for the assignment.
+Scope revised on 2026-10-11. Earlier production-oriented decisions are preserved in commit `ea11c09`; this document supersedes them for the assignment.
 
 | Choice | Reason |
 |---|---|
