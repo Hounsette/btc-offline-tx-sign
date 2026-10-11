@@ -5,7 +5,8 @@ use bitcoin::secp256k1::{Message, Secp256k1};
 use bitcoin::sighash::{EcdsaSighashType, P2wpkhError, SighashCache};
 use bitcoin::transaction::Version;
 use bitcoin::{
-    CompressedPublicKey, PrivateKey, ScriptBuf, Sequence, Transaction, TxIn, Witness, ecdsa,
+    CompressedPublicKey, NetworkKind, PrivateKey, ScriptBuf, Sequence, Transaction, TxIn, Witness,
+    ecdsa,
 };
 
 use crate::payload::Payment;
@@ -13,6 +14,8 @@ use crate::payload::Payment;
 /// Why a payment could not be signed with the given key.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("private key is for mainnet; only testnet keys are supported")]
+    MainnetKey,
     #[error("private key is uncompressed; P2WPKH requires a compressed key")]
     UncompressedKey,
     #[error("private key does not control the previous output")]
@@ -29,9 +32,13 @@ pub enum Error {
 ///
 /// # Errors
 ///
-/// Returns [`Error::UncompressedKey`] or [`Error::KeyMismatch`] if `key` cannot spend the
-/// previous output.
+/// Returns [`Error::MainnetKey`], [`Error::UncompressedKey`], or [`Error::KeyMismatch`] if `key`
+/// cannot spend the previous output.
 pub fn sign(payment: &Payment, key: &PrivateKey) -> Result<Transaction, Error> {
+    // The script does not depend on the network, so a mainnet key would otherwise pass.
+    if key.network != NetworkKind::Test {
+        return Err(Error::MainnetKey);
+    }
     let secp = Secp256k1::signing_only();
     let public_key =
         CompressedPublicKey::from_private_key(&secp, key).map_err(|_| Error::UncompressedKey)?;

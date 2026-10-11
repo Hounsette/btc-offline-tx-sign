@@ -1,6 +1,8 @@
 // Marks helpers as test code so clippy.toml's allow-unwrap-in-tests covers them.
 #![cfg(test)]
 
+// Each test binary uses only some of the shared helpers.
+#[allow(dead_code)]
 mod common;
 
 #[path = "payload/messages.rs"]

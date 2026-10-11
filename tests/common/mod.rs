@@ -12,6 +12,10 @@ use btc_offline_signer::payload::{Error, ParseError, Payment, parse};
 /// Public test key 1; the specification's fixture both spends from and pays to it.
 pub(crate) const KEY_1_ADDRESS: &str = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx";
 pub(crate) const KEY_1_SCRIPT: &str = "0014751e76e8199196d454941c45d1b3a323f1433bd6";
+/// Secret 1, which owns the fixture's previous output.
+pub(crate) const KEY_1_WIF: &str = "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN87JcbXMTcA";
+/// Secret 2.
+pub(crate) const KEY_2_WIF: &str = "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN87K7XCyj5v";
 /// BIP84's first receiving key hash, encoded for testnet.
 pub(crate) const RECIPIENT_ADDRESS: &str = "tb1qcr8te4kr609gcawutmrza0j4xv80jy8zmfp6l0";
 pub(crate) const RECIPIENT_SCRIPT: &str = "0014c0cebcd6c3d3ca8c75dc5ec62ebe55330ef910e2";
