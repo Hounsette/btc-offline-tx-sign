@@ -52,4 +52,4 @@ Errors go to stderr with a nonzero exit. Stdout stays empty unless writing the s
 
 The previous transaction proves the referenced amount/script against its txid, not confirmation or unspent status. Network labels do not isolate keys; use disposable testnet keys never used on mainnet. Fee-rate selection and dust policy belong to the online preparation step; a valid signature alone does not guarantee relay.
 
-No BIP38 keystore, multiple keys, multisig, Taproot, or production release workflow is required. See [decisions](Decisions.md).
+No BIP38 keystore, multiple keys, multisig, Taproot, or production release workflow is required. See [decisions](decisions.md).

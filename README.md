@@ -36,7 +36,7 @@ Failures exit nonzero with a message on stderr. Stdout stays empty unless writin
 
 The key is read unbuffered into a fixed-size buffer; it and the reply are zeroized after use. Copies inside `bitcoin` are not reliably cleared: base58 decoding and re-encoding, and moves of the `Copy` private key type (its last copy is overwritten on a best-effort basis).
 
-Scope: one P2WPKH input, one recipient, optional explicit change, testnet only. Full previous-transaction data enables offline verification. See the [input format](Docs/Technical_Specification.md#input).
+Scope: one P2WPKH input, one recipient, optional explicit change, testnet only. Full previous-transaction data enables offline verification. See the [input format](docs/technical-specification.md#input).
 
 ## Demonstration
 
@@ -46,9 +46,9 @@ Use a fresh disposable testnet key. Prepare the payload online, sign on a discon
 
 ## Documentation
 
-- [Specification](Docs/Technical_Specification.md): behavior and input format.
-- [Checklist](Docs/Roadmap.md): remaining implementation and submission work.
-- [Decisions](Docs/Decisions.md): scope and tradeoffs.
-- [Coding conventions](Docs/Coding_Style.md): a few rules for readable, safe code.
+- [Specification](docs/technical-specification.md): behavior and input format.
+- [Checklist](docs/roadmap.md): remaining implementation and submission work.
+- [Decisions](docs/decisions.md): scope and tradeoffs.
+- [Coding conventions](docs/coding-style.md): a few rules for readable, safe code.
 
 This is an interview prototype, not a production wallet. It does not establish whether an input is confirmed or still unspent; the broadcasting node checks chain state. Never use mainnet keys or funds.

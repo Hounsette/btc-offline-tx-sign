@@ -1,6 +1,6 @@
 # Completion Checklist
 
-Complete one working path before adding features. The [specification](Technical_Specification.md) defines the scope.
+Complete one working path before adding features. The [specification](technical-specification.md) defines the scope.
 
 ## BTCSIGN-001: Validate the payload
 

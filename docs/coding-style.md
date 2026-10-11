@@ -13,4 +13,4 @@
 - Keep dependencies minimal and commit `Cargo.lock`. Libraries: `bitcoin`, `clap` (without default features), `serde`/`serde_json`, `rustix` (terminal settings), `zeroize`, and `thiserror`.
 - Before committing code, run `make`. For documentation-only edits, check examples, links, and consistency instead.
 
-See the [specification](Technical_Specification.md) for behavior and the [checklist](Roadmap.md) for acceptance checks.
+See the [specification](technical-specification.md) for behavior and the [checklist](roadmap.md) for acceptance checks.
