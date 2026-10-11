@@ -13,7 +13,8 @@ use bitcoin::secp256k1::{Message, Secp256k1};
 use bitcoin::sighash::{EcdsaSighashType, SighashCache};
 use bitcoin::transaction::Version;
 use bitcoin::{
-    Amount, CompressedPublicKey, PrivateKey, ScriptBuf, Sequence, Transaction, TxOut, ecdsa,
+    Amount, CompressedPublicKey, NetworkKind, PrivateKey, ScriptBuf, Sequence, Transaction, TxOut,
+    ecdsa,
 };
 use serde_json::json;
 
@@ -21,14 +22,9 @@ use btc_offline_signer::payload::Payment;
 use btc_offline_signer::signing::{Error, sign};
 
 use crate::common::{
-    P2WSH_ADDRESS, RECIPIENT_ADDRESS, RECIPIENT_SCRIPT, fixture_with, fixture_with_change,
-    fixture_with_prev_tx, parse_ok, script_of,
+    KEY_1_WIF, KEY_2_WIF, P2WSH_ADDRESS, RECIPIENT_ADDRESS, RECIPIENT_SCRIPT, fixture_with,
+    fixture_with_change, fixture_with_prev_tx, parse_ok, script_of,
 };
-
-/// Secret 1, which owns the fixture's previous output.
-const KEY_1_WIF: &str = "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN87JcbXMTcA";
-/// Secret 2.
-const KEY_2_WIF: &str = "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN87K7XCyj5v";
 
 /// The fixture paying another recipient. Its own output pays back to the spent script, which
 /// would hide a signature hash computed over the wrong script.
@@ -230,4 +226,14 @@ fn returns_uncompressed_key_err_for_uncompressed_key() {
         sign(&payment(), &uncompressed),
         Err(Error::UncompressedKey)
     ));
+}
+
+#[test]
+fn returns_mainnet_key_for_mainnet_key() {
+    // The right secret still fails: only testnet keys are accepted.
+    let mainnet = PrivateKey {
+        network: NetworkKind::Main,
+        ..key(KEY_1_WIF)
+    };
+    assert!(matches!(sign(&payment(), &mainnet), Err(Error::MainnetKey)));
 }

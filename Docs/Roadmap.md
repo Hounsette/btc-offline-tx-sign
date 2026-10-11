@@ -23,11 +23,11 @@ Complete one working path before adding features. The [specification](Technical_
 
 ## BTCSIGN-004: Complete the offline CLI
 
-- [ ] Read `--params`, show the payment summary, and require confirmation.
-- [ ] Read a compressed testnet WIF through a hidden terminal prompt; validate ownership before signing.
-- [ ] Print only complete signed hex on success; no secret material in output/errors.
+- [x] Read `--params`, show the payment summary, and require confirmation.
+- [x] Read a compressed testnet WIF through a hidden terminal prompt; validate ownership before signing.
+- [x] Print only complete signed hex on success; no secret material in output/errors.
 - [ ] Test CLI argument/file errors, cancellation, malformed/wrong-network/uncompressed keys, key mismatch, and empty stdout on failure. Check hidden input and the successful flow in a real terminal.
-- [ ] Run `make`; review dependencies and secret lifetimes. Add simple CI if time permits.
+- [x] Run `make`; review dependencies and secret lifetimes. Add simple CI if time permits.
 
 ## BTCSIGN-005: Demonstrate and submit
 

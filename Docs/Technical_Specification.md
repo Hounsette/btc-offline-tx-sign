@@ -46,7 +46,7 @@ Both output addresses are supplied explicitly. The signer never invents change; 
 5. Read the WIF without echo. Require a compressed testnet key matching the verified previous-output script.
 6. Sign using the verified amount/script. Serialize the complete transaction and print its hex plus one newline to stdout, once.
 
-Errors go to stderr with a nonzero exit and empty stdout. `--help` is informational. Keep secrets out of errors and logs; zeroize owned input buffers and document any library copies that cannot be reliably cleared.
+Errors go to stderr with a nonzero exit. Stdout stays empty unless writing the signed hex fails partway, so callers discard stdout after a nonzero exit. `--help` is informational. Keep secrets out of errors and logs; zeroize owned input buffers and document any library copies that cannot be reliably cleared.
 
 ## Limits
 
