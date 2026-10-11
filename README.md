@@ -1,8 +1,10 @@
 # btc-offline-signer
 
-An air-gapped command-line tool that signs Bitcoin transactions offline. It reads a transaction intent (`params.json`) and a BIP38-encrypted keystore, prompts for the passphrase, and prints the signed transaction hex for broadcast from an online machine.
+An offline Bitcoin signer: transaction JSON + encrypted keys → operator confirmation → signed hex for online broadcast.
 
 > **Status:** early development. The signer is not functional yet.
+
+Only the scaffold and local checks exist; there are no tests yet. CI and the pinned static build are [BTCSIGN-001](Docs/Roadmap.md#btcsign-001-ci-pipeline-and-static-release-build). v0.1.0 will reject mainnet; use disposable test keys only (D2, D12).
 
 ## Prerequisites
 
@@ -23,9 +25,9 @@ From the repository root:
 make build
 ```
 
-`make build` first runs the formatting check, clippy, and the test suite, and only builds if all three pass. The binary is written to `target/release/btc-offline-signer`.
+Checks must pass before building `target/release/btc-offline-signer`.
 
-**Building for the offline machine:** build on an online machine (cargo downloads dependencies from crates.io), then copy the binary to the offline signer. It must have the same OS and CPU architecture. The offline machine doesn't need Rust installed.
+The current build uses host system libraries. The planned musl build removes the glibc dependency (D28); verify releases on the offline machine, which needs no Rust installation.
 
 ## Development
 
@@ -39,15 +41,32 @@ make build
 | `make audit` | Scans dependencies for known vulnerabilities |
 | `make clean` | Removes build output |
 
-Run `make` before every commit. The lint rules live in `Cargo.toml` and `clippy.toml`; see [Docs/Coding_Style.md](Docs/Coding_Style.md) for why each one exists.
+Build incrementally: one input/output → change → multiple inputs → multiple keys → encrypted CLI → testnet proof. The first release verifies full previous transactions and selects keys automatically; see the [roadmap](Docs/Roadmap.md).
+
+Follow the [completion checklist](Docs/Roadmap.md#definition-of-done-every-deliverable). Lints live in `Cargo.toml` and `clippy.toml`.
 
 ### Dependencies and `Cargo.lock`
 
-Every `make` target runs cargo with `--locked`, so builds use exactly the dependency versions recorded in `Cargo.lock`. After adding or changing a dependency in `Cargo.toml`, run `cargo check` once to update `Cargo.lock`, then commit both files together.
+Build, lint, and test use `--locked`. After changing dependencies, run `cargo check`, review the lockfile changes, and commit both files. This pins dependencies, not binary reproducibility (D29).
 
 ## Documentation
 
-- [Technical Specification](Docs/Technical_Specification.md): what the signer does and its security safeguards
-- [Coding Style Guide](Docs/Coding_Style.md): how the code is written (test-first, readability, lint rules)
-- [Roadmap](Docs/Roadmap.md): incremental milestones, deliverables (`BTCSIGN-XXX`) and the tests for each
-- [Decisions](Docs/Decisions.md): open points in the spec, with the answer the roadmap assumes for each
+| Document | Owns |
+|---|---|
+| [Specification](Docs/Technical_Specification.md) | Required behavior; provisional choices marked |
+| [Coding Style](Docs/Coding_Style.md) | Code and test conventions |
+| [Roadmap](Docs/Roadmap.md) | Work, tests, status, and evidence |
+| [Decisions](Docs/Decisions.md) | Choices and rationale |
+
+This README covers current capabilities and operation.
+
+## Planned operator runbook
+
+Before BTCSIGN-016, replace this checklist with tested commands and rehearse using disposable keys. Keep secrets and real payment records out of evidence.
+
+1. **Install:** compare `sha256sum` with a trusted release record before execution; verify signatures if selected under D29. Stop on mismatch.
+2. **Restore:** back up the encrypted keystore and public-key inventory on separate offline media; store passphrase recovery material separately. Restore to another offline location, compare public keys, and test signing. Preserve the original; never export plaintext keys.
+3. **Sign:** use an explicit keystore path. Compare every recipient, amount, and fee with independent trusted payment information before confirming. Only payloads and signed hex travel between machines; secrets stay offline.
+4. **Release:** run the [release checks](Docs/Roadmap.md#btcsign-016-release-v010) against the exact binary on the target machine and record the results.
+5. **Upgrade:** back up first, verify the binary and backend compatibility (spec §3.3), then rehearse signing. Never bypass verification through an older signer or altered payload.
+6. **Recover:** stop on failure; check paths, key inventory, and the payment request without exposing secrets. Restore only a verified compatible version. After interruption, check broadcast status online before retrying; never broadcast partial output.
