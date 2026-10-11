@@ -39,7 +39,7 @@ pub enum ConstraintError {
     UnsupportedNetwork(String),
     #[error("expected exactly one input, found {0}")]
     InputCount(usize),
-    #[error("expected exactly one output, found {0}")]
+    #[error("expected one or two outputs, found {0}")]
     OutputCount(usize),
 }
 
@@ -58,7 +58,7 @@ pub enum PrevTxError {
     AboveMaxMoney(Amount),
 }
 
-/// Destination address and payment amount validation.
+/// Destination address, payment amount, and change validation.
 #[derive(Debug, thiserror::Error)]
 pub enum OutputError {
     #[error("output address {} is not valid on testnet", .0.assume_checked_ref())]
@@ -69,6 +69,8 @@ pub enum OutputError {
     ZeroAmount,
     #[error("output amount {} sats exceeds the maximum supply", .0.to_sat())]
     AmountAboveMaxMoney(Amount),
+    #[error("change output must pay back to the address being spent")]
+    ForeignChange,
 }
 
 /// Transaction totals and fee validation.

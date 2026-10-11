@@ -112,6 +112,7 @@ impl Payment {
         &self.prev_output
     }
 
+    /// The recipient, then optional change paying back to the spent output's script.
     pub fn outputs(&self) -> &[TxOut] {
         &self.outputs
     }
@@ -128,7 +129,7 @@ impl Payment {
 ///
 /// Returns [`Error::Parse`] for read, size, or JSON failures; [`Error::Constraints`]
 /// for unsupported networks or counts; [`Error::PrevTx`] for invalid previous-output
-/// data; [`Error::Output`] for invalid destinations or amounts; and [`Error::Balance`]
+/// data; [`Error::Output`] for invalid destinations, amounts, or change; and [`Error::Balance`]
 /// for overflowing totals, overspending, or excessive fees.
 pub fn parse(reader: impl Read) -> Result<Payment, Error> {
     let mut json = Vec::new();
@@ -147,7 +148,7 @@ pub fn parse(reader: impl Read) -> Result<Payment, Error> {
     let [Object(input)] = params.inputs.as_slice() else {
         return Err(ConstraintError::InputCount(params.inputs.len()).into());
     };
-    if params.outputs.len() != 1 {
+    if !(1..=2).contains(&params.outputs.len()) {
         return Err(ConstraintError::OutputCount(params.outputs.len()).into());
     }
 
@@ -157,6 +158,13 @@ pub fn parse(reader: impl Read) -> Result<Payment, Error> {
         .into_iter()
         .map(|Object(output)| to_txout(output))
         .collect::<Result<Vec<_>, _>>()?;
+    // `sign` requires the key to own the spent script, so change there belongs to that key.
+    if outputs
+        .get(1)
+        .is_some_and(|change| change.script_pubkey != prev_output.script_pubkey)
+    {
+        return Err(OutputError::ForeignChange.into());
+    }
     let total = outputs
         .iter()
         .map(|output| output.value)

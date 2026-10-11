@@ -187,8 +187,8 @@ fn returns_output_count_for_wrong_number_of_outputs() {
         Error::Constraints(ConstraintError::OutputCount(0))
     ));
     assert!(matches!(
-        parse_error(fixture_with("/outputs", json!([output, output]))),
-        Error::Constraints(ConstraintError::OutputCount(2))
+        parse_error(fixture_with("/outputs", json!([output, output, output]))),
+        Error::Constraints(ConstraintError::OutputCount(3))
     ));
 }
 

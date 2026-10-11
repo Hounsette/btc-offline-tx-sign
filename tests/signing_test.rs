@@ -21,8 +21,8 @@ use btc_offline_signer::payload::Payment;
 use btc_offline_signer::signing::{Error, sign};
 
 use crate::common::{
-    P2WSH_ADDRESS, RECIPIENT_ADDRESS, RECIPIENT_SCRIPT, fixture_with, fixture_with_prev_tx,
-    parse_ok, script_of,
+    P2WSH_ADDRESS, RECIPIENT_ADDRESS, RECIPIENT_SCRIPT, fixture_with, fixture_with_change,
+    fixture_with_prev_tx, parse_ok, script_of,
 };
 
 /// Secret 1, which owns the fixture's previous output.
@@ -169,6 +169,34 @@ fn signature_fails_for_changed_output_or_input_amount() {
         ..payment.prev_output().clone()
     };
     assert!(!verifies(&tx, &other_amount, &key_1));
+}
+
+#[test]
+fn signs_change_and_fails_after_changing_either_output() {
+    let payment = parse_ok(fixture_with_change());
+    let tx = sign(&payment, &key(KEY_1_WIF)).unwrap();
+    let key_1 = public_key(KEY_1_WIF);
+
+    assert_eq!(tx.output, payment.outputs());
+    assert!(verifies(&tx, payment.prev_output(), &key_1));
+
+    for index in 0..2 {
+        let mut changed = tx.clone();
+        changed.output[index].value = Amount::from_sat(1);
+        assert!(!verifies(&changed, payment.prev_output(), &key_1));
+
+        let mut changed = tx.clone();
+        changed.output[index].script_pubkey = script_of(P2WSH_ADDRESS);
+        assert!(!verifies(&changed, payment.prev_output(), &key_1));
+    }
+
+    // Moving the fee into change, or swapping the outputs, also invalidates it.
+    let mut changed = tx.clone();
+    changed.output[1].value = Amount::from_sat(40_000);
+    assert!(!verifies(&changed, payment.prev_output(), &key_1));
+    let mut changed = tx.clone();
+    changed.output.swap(0, 1);
+    assert!(!verifies(&changed, payment.prev_output(), &key_1));
 }
 
 #[test]
