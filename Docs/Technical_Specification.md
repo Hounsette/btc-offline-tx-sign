@@ -1,32 +1,18 @@
-# Bitcoin Offline Transaction Signer: Technical Specification
+# Technical Specification
 
-Target-release requirements. Resolve marked provisional choices in [Decisions](Decisions.md) before implementation; see [Roadmap](Roadmap.md) for progress and tests.
+Target behavior for the interview submission; current implementation status is in the [README](../README.md).
 
-## 1. Architecture Overview & Constraints
+## Scope
 
-An offline CLI separates public transaction payloads from the private keystore.
+- Offline Rust CLI; no network access during signing.
+- Testnet only: reject other network values and incompatible addresses/keys.
+- Exactly one P2WPKH input and one or two P2WPKH outputs: recipient and optional change.
+- One compressed testnet WIF private key, read through a hidden terminal prompt.
+- Version 2, locktime 0, sequence `0xFFFFFFFD` (RBF), `SIGHASH_ALL`. Use the Bitcoin library for hashing, ECDSA signing, and serialization.
 
-- **Offline:** no network calls. Transfer the payload in and signed hex out for online broadcast.
-- **Testnet-only:** v0.1.0 accepts only `"testnet"`, rejecting other networks before keystore access or prompts (D2, D12). Use disposable keys never funded on mainnet; network labels do not isolate keys or signatures.
-- **Mainnet:** requires BTCSIGN-017, operator review, passing security/release checks, and separate release approval.
-- **Trust:** the offline OS, binary, and operator review environment must be trusted.
+## Input
 
-## 2. Recommended Rust Stack
-
-Proposed stack; confirm BIP38 compatibility under D20–D22.
-
-- **`bitcoin`:** transaction types and signing; P2WPKH inputs only (D1).
-- **`bip38` / `rpassword`:** key decryption and terminal passphrases.
-- **`secrecy` / `zeroize`:** secret buffers; limits in §5.3.
-- **`clap`** (`derive`): CLI arguments.
-- **`serde` / `serde_json`:** strict deserialization.
-- **`anyhow` / `thiserror`:** errors without secret material.
-
-## 3. Data & Input Specification
-
-### 3.1. The Intent Payload (`params.json`)
-
-Generated online; contains no private keys. This synthetic fixture is not broadcastable. Its previous output belongs to public test key 1; never fund that key.
+`--params <PATH>` reads JSON. This synthetic fixture is not broadcastable; its previous output belongs to public test key 1, which must never be funded.
 
 ```json
 {
@@ -35,7 +21,6 @@ Generated online; contains no private keys. This synthetic fixture is not broadc
     {
       "txid": "71e3be4e5b89d4263d5902a50180ea5b660a3af3ee8894aaa024ec0f2391a0f6",
       "vout": 0,
-      "amount_sats": 100000,
       "prev_tx": "020000000111111111111111111111111111111111111111111111111111111111111111110000000000ffffffff01a086010000000000160014751e76e8199196d454941c45d1b3a323f1433bd600000000"
     }
   ],
@@ -44,66 +29,27 @@ Generated online; contains no private keys. This synthetic fixture is not broadc
       "address": "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
       "amount_sats": 95000
     }
-  ],
-  "fee_sats": 5000
+  ]
 }
 ```
 
-Each input requires `prev_tx` (full transaction hex). Verify its txid, `vout`, amount, and P2WPKH script before fee checks. Match that script against the offline public-key inventory to select the signing key; no input `pubkey` is accepted (D10, D12).
+Verify `prev_tx` decodes completely, its txid matches `txid`, and output `vout` exists with a P2WPKH script. Read its amount from that output; calculate the fee as input amount minus output totals. Input amount, fee, and public key are not separate payload fields.
 
-### 3.2. The Keystore
+Both output addresses are supplied explicitly. The signer never invents change; if two outputs are present, require the second output's script to match the signing key's P2WPKH script.
 
-The encrypted keystore stays offline. File name/format and CLI details are provisional (D7, D19).
+## Validation and signing
 
-- Default: `keys.txt`; override with `--keystore`. Each line: compressed public-key hex, a space, and a BIP38 string (`6P...`).
-- Never write plaintext private keys to disk.
-- A future keystore retains matching by previous-output script (D11).
+1. Reject files over 16 MiB, malformed/duplicate/unknown JSON fields, unsupported networks, and invalid input/output counts.
+2. Verify the previous output; check destination checksums, network, and P2WPKH type.
+3. Use integer satoshis and checked arithmetic. Reject zero outputs, amounts/totals above Bitcoin's maximum supply, overspending, and fees above 1,000,000 sats (the exercise's fixed fee cap).
+4. Show every destination and amount, input total, and fee on stderr. Require terminal input exactly `yes`; cancellation, EOF, or other input aborts.
+5. Read the WIF without echo. Require a compressed testnet key matching the verified previous-output script; also verify change ownership when present.
+6. Sign using the verified amount/script. Serialize the complete transaction and print its hex plus one newline to stdout, once.
 
-### 3.3. Backend Compatibility
+Errors go to stderr with a nonzero exit and empty stdout. `--help` is informational. Keep secrets out of errors and logs; zeroize owned input buffers and document any library copies that cannot be reliably cleared.
 
-- Release notes identify the payload contract, compatible backend version, and a tested backend-generated fixture (D34). No JSON version field is required.
-- Reject unsupported payload shapes before keystore access or prompts; never fall back to weaker validation.
-- The first release requires `prev_tx` and rejects the earlier `pubkey` payload shape. Update backend examples/fixtures before release; future contract changes require coordinated upgrades.
+## Limits
 
-## 4. Core Execution Flow
+The previous transaction proves the referenced amount/script against its txid, not confirmation or unspent status. Network labels do not isolate keys; use disposable testnet keys never used on mainnet. Fee-rate selection and dust policy belong to the online preparation step; a valid signature alone does not guarantee relay.
 
-1. **Parse Arguments:** `clap` parses the path to `params.json` and, optionally, the keystore file (default `keys.txt`).
-2. **Strict Deserialization:** Read `params.json` into typed Rust structs, verify previous outputs, then check amounts, fees, and other security boundaries (see [Section 5](#5-security--anti-dos-safeguards)).
-3. **Construct Unsigned Transaction:** Map inputs to `bitcoin::TxIn` and outputs to `bitcoin::TxOut` (resolving `ScriptPubkey`).
-4. **Operator Review and Secure Key Decryption:**
-   - Validate the keystore, match every input script to a local public key, and require every key before prompting.
-   - Show network, every output address/amount, input/output totals, fee, and used public keys on stderr. Compare against independent trusted payment information.
-   - Require terminal input exactly `yes`, excluding its line ending (D17). Other input, EOF, or terminal failure aborts: nonzero exit, empty stdout.
-   - Prompt for each passphrase with echo disabled (`rpassword`), decrypt in memory, and check the public key. Key representation remains provisional (D25).
-5. **Sign Transaction:** Generate sighashes and apply signatures using the approved input script type (D1).
-6. **Clear Secrets:** Drop passphrases after decryption and clear owned key buffers after signing or failure (§5.3).
-7. **Output Hex:** Print the serialized `bitcoin::Transaction` to stdout for the user to copy.
-
-## 5. Security & Anti-DoS Safeguards
-
-### 5.1. Resource Exhaustion Prevention
-
-- **File Size Limits:** Reject oversize reads; never truncate. D4 proposes 16 MiB (16_777_216 bytes), including previous transactions. Keystore cap: D7. Confirm before implementation.
-- **Vector Limits:** A hard cap of 1,000 items on each of the `inputs` and `outputs` arrays bounds transaction work.
-- **Strict Parsing:** Serde is configured with `#[serde(deny_unknown_fields)]` to reject bloated, malformed JSON.
-
-### 5.2. Financial Logic Boundaries
-
-- **Satoshi Bounds:** Parse amounts as `u64`; individual amounts and input/output totals must not exceed 2.1 × 10^15 satoshis. Use checked arithmetic.
-- **Absolute Fee Cap:** D5 proposes at most 1_000_000 sats (0.01 BTC). Confirm the value and whether to add a separate sats/vbyte limit.
-- **Fee Consistency Check:** `fee_sats` must equal `sum(inputs) - sum(outputs)`; any mismatch aborts signing.
-- **Duplicate Input Check:** Verifies all provided UTXOs (TxID + vout) are unique before building the transaction.
-- **Previous Outputs:** require the supplied transaction to match `txid`, contain `vout`, and have the declared `amount_sats` and a supported P2WPKH script. Calculate fees from verified amounts. This does not prove confirmation or unspent status (D12).
-
-### 5.3. Memory Safety
-
-- Use short-lived secret wrappers that zeroize on drop; review success/error paths for copies (D24, D25).
-- Temporary copies may remain after owned buffers are cleared; see [zeroize's limits](https://docs.rs/zeroize/latest/zeroize/#stackheap-zeroing-notes).
-- Review and test errors for secret leaks.
-
-## 6. Deliverables & Broadcast Verification
-
-- **Build:** hosting is D30. Commit `Cargo.lock`; [`--locked`](https://doc.rust-lang.org/cargo/commands/cargo-build.html#manifest-options) pins dependencies, not byte-identical binaries.
-- **Tests:** each requirement maps to a named test or recorded check in the roadmap.
-- **Release:** follow BTCSIGN-016's artifact, signing, compatibility, and recovery checks.
-- **Broadcast:** record a confirmed testnet transaction's TxID URL; this is not mainnet approval.
+No BIP38 keystore, multiple keys, multisig, Taproot, or production release workflow is required. See [decisions](Decisions.md).

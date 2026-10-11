@@ -1,72 +1,47 @@
 # btc-offline-signer
 
-An offline Bitcoin signer: transaction JSON + encrypted keys → operator confirmation → signed hex for online broadcast.
+A Rust CLI for creating a signed Bitcoin transaction without internet access. Built for the Coincheck interview assignment.
 
-> **Status:** early development. The signer is not functional yet.
+**Status:** scaffold only (`main` is empty). Signing, tests, and broadcast proof are not implemented yet.
 
-Only the scaffold and local checks exist; there are no tests yet. CI and the pinned static build are [BTCSIGN-001](Docs/Roadmap.md#btcsign-001-ci-pipeline-and-static-release-build). v0.1.0 will reject mainnet; use disposable test keys only (D2, D12).
+## Assignment
 
-## Prerequisites
+- Signing must work offline.
+- Submit a GitHub/GitLab repository and a URL showing a successful testnet or mainnet broadcast.
+- Priorities: readability, maintainability, and understanding of the language/libraries. Tests and Bitcoin knowledge are valuable; feature count is not a priority.
 
-- **Rust** stable 1.85 or newer (the project uses edition 2024), with `clippy` and `rustfmt`:
+## Build and checks
 
-  ```sh
-  rustup component add clippy rustfmt
-  ```
-
-- **GNU make**
-- **cargo-audit** (optional, for `make audit`): `cargo install cargo-audit`
-
-## Build
-
-From the repository root:
+Requires stable Rust 1.85+ with `rustfmt` and `clippy`, plus GNU make.
 
 ```sh
-make build
+make          # format check, clippy, tests
+make build    # checks, then release build
 ```
 
-Checks must pass before building `target/release/btc-offline-signer`.
+The current binary is `target/release/btc-offline-signer`. It does nothing yet. `make fmt` formats code; `make audit` requires cargo-audit. Commit `Cargo.lock`; builds use `--locked`.
 
-The current build uses host system libraries. The planned musl build removes the glibc dependency (D28); verify releases on the offline machine, which needs no Rust installation.
+## Planned usage
 
-## Development
+```sh
+./target/release/btc-offline-signer --params params.json > signed.hex
+```
 
-| Command | What it does |
-|---|---|
-| `make` | Runs every check: `cargo fmt --check`, clippy with warnings as errors, and the tests |
-| `make build` | Runs every check, then builds the release binary |
-| `make test` | Runs the tests only |
-| `make lint` | Runs clippy only |
-| `make fmt` | Formats the code in place |
-| `make audit` | Scans dependencies for known vulnerabilities |
-| `make clean` | Removes build output |
+The signer will validate the payload, show the destination(s), amounts, and fee on stderr, and require confirmation. It will then read one compressed testnet private key in WIF format through a hidden terminal prompt. Never supply the key in arguments or commit a funded key.
 
-Build incrementally: one input/output → change → multiple inputs → multiple keys → encrypted CLI → testnet proof. The first release verifies full previous transactions and selects keys automatically; see the [roadmap](Docs/Roadmap.md).
+Scope: one P2WPKH input, one recipient, optional explicit change, testnet only. Full previous-transaction data enables offline verification. See the [input format](Docs/Technical_Specification.md#input).
 
-Follow the [completion checklist](Docs/Roadmap.md#definition-of-done-every-deliverable). Lints live in `Cargo.toml` and `clippy.toml`.
+## Demonstration
 
-### Dependencies and `Cargo.lock`
+Use a fresh disposable testnet key. Prepare the payload online, sign on a disconnected machine, then transfer only the signed hex back online to broadcast. Verify confirmation, destinations, amounts, and fee.
 
-Build, lint, and test use `--locked`. After changing dependencies, run `cargo check`, review the lockfile changes, and commit both files. This pins dependencies, not binary reproducibility (D29).
+**Broadcast proof:** pending. Before submission, replace this with the confirmed transaction's explorer URL, the tested network, build/run commands, and a short note on how signing was isolated from the network. Do not publish the private key or terminal input.
 
 ## Documentation
 
-| Document | Owns |
-|---|---|
-| [Specification](Docs/Technical_Specification.md) | Required behavior; provisional choices marked |
-| [Coding Style](Docs/Coding_Style.md) | Code and test conventions |
-| [Roadmap](Docs/Roadmap.md) | Work, tests, status, and evidence |
-| [Decisions](Docs/Decisions.md) | Choices and rationale |
+- [Specification](Docs/Technical_Specification.md): behavior and input format.
+- [Checklist](Docs/Roadmap.md): remaining implementation and submission work.
+- [Decisions](Docs/Decisions.md): scope and tradeoffs.
+- [Coding conventions](Docs/Coding_Style.md): a few rules for readable, safe code.
 
-This README covers current capabilities and operation.
-
-## Planned operator runbook
-
-Before BTCSIGN-016, replace this checklist with tested commands and rehearse using disposable keys. Keep secrets and real payment records out of evidence.
-
-1. **Install:** compare `sha256sum` with a trusted release record before execution; verify signatures if selected under D29. Stop on mismatch.
-2. **Restore:** back up the encrypted keystore and public-key inventory on separate offline media; store passphrase recovery material separately. Restore to another offline location, compare public keys, and test signing. Preserve the original; never export plaintext keys.
-3. **Sign:** use an explicit keystore path. Compare every recipient, amount, and fee with independent trusted payment information before confirming. Only payloads and signed hex travel between machines; secrets stay offline.
-4. **Release:** run the [release checks](Docs/Roadmap.md#btcsign-016-release-v010) against the exact binary on the target machine and record the results.
-5. **Upgrade:** back up first, verify the binary and backend compatibility (spec §3.3), then rehearse signing. Never bypass verification through an older signer or altered payload.
-6. **Recover:** stop on failure; check paths, key inventory, and the payment request without exposing secrets. Restore only a verified compatible version. After interruption, check broadcast status online before retrying; never broadcast partial output.
+This is an interview prototype, not a production wallet. It does not establish whether an input is confirmed or still unspent; the broadcasting node checks chain state. Never use mainnet keys or funds.

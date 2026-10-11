@@ -1,4 +1,4 @@
-# Quality gate from Docs/Coding_Style.md §14. `make` runs every check;
+# Quality gate. `make` runs every check;
 # `make build` refuses to build until they all pass.
 
 .PHONY: check fmt-check lint test build fmt audit clean
