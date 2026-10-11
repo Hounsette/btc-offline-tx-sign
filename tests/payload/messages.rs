@@ -1,6 +1,9 @@
 //! The text users see. The `returns_*` tests check which rejection occurs; these check
 //! that each message names the rejected values correctly. Group messages are checked
-//! directly; `Error` includes the full chain and escapes it for terminal output.
+//! directly; the top-level `Error` the CLI prints shows the full chain, escaped for terminal
+//! output.
+
+use std::error::Error as _;
 
 use bitcoin::address::NetworkUnchecked;
 use bitcoin::{Address, Amount, Txid};
@@ -11,6 +14,11 @@ use btc_offline_signer::payload::{
 };
 
 use crate::common::{ABOVE_MAX_MONEY_SATS, P2WSH_ADDRESS, fixture, fixture_with, parse_error};
+
+/// The message the CLI prints for `error`.
+fn shown(error: Error) -> String {
+    btc_offline_signer::Error::from(error).to_string()
+}
 
 const FIXTURE_TXID: &str = "71e3be4e5b89d4263d5902a50180ea5b660a3af3ee8894aaa024ec0f2391a0f6";
 const OTHER_TXID: &str = "0000000000000000000000000000000000000000000000000000000000000001";
@@ -97,7 +105,7 @@ fn messages_name_the_rejected_values() {
 }
 
 #[test]
-fn report_includes_library_details_from_sources() {
+fn shown_includes_library_details_from_sources() {
     let prev_tx = fixture()["inputs"][0]["prev_tx"]
         .as_str()
         .unwrap()
@@ -107,87 +115,107 @@ fn report_includes_library_details_from_sources() {
         json!(format!("{prev_tx}00")),
     ));
 
-    let report = error.report();
-    assert_eq!(error.to_string(), report);
-    assert!(
-        report.starts_with("prev_tx is not a valid transaction: decoding error: "),
-        "{report}"
+    // The payload error's own message alone would hide why decoding failed.
+    assert_eq!(error.to_string(), "prev_tx is not a valid transaction");
+    assert!(error.source().is_some());
+    // Each source appears once, though `Error` forwards its group's source.
+    assert_eq!(
+        shown(error),
+        "prev_tx is not a valid transaction: decoding error: \
+         attempted to decode object from an iterator that yielded too many bytes"
     );
-    assert!(report.ends_with("yielded too many bytes"), "{report}");
+}
+
+/// A synthetic cause chain, to check every level is escaped.
+#[derive(Debug, thiserror::Error)]
+#[error("{message}")]
+struct Cause {
+    message: &'static str,
+    source: Option<Box<Cause>>,
+}
+
+fn cause(message: &'static str, source: Option<Cause>) -> Cause {
+    Cause {
+        message,
+        source: source.map(Box::new),
+    }
 }
 
 #[test]
-fn report_escapes_control_characters_in_unknown_fields() {
-    use std::error::Error as _;
+fn shown_escapes_each_nested_cause_once() {
+    // `io::Error` shows the outer cause, then returns the outer cause's source.
+    let inner = cause("line\r\nerror: forged \u{7}", None);
+    let middle = cause("bad byte \u{1b}[2J", Some(inner));
+    let error = Error::from(ParseError::Read(std::io::Error::other(cause(
+        "decoder failed",
+        Some(middle),
+    ))));
 
+    assert_eq!(
+        shown(error),
+        r"failed to read params: decoder failed: bad byte \u{1b}[2J: line\r\nerror: forged \u{7}"
+    );
+}
+
+#[test]
+fn shown_escapes_control_characters_in_unknown_fields() {
     let field = "攻撃\u{1b}[2J\r\n\t\u{7}\u{9b}31m\u{202e}";
     for pointer in ["", "/inputs/0", "/outputs/0"] {
         let mut params = fixture();
         params.pointer_mut(pointer).unwrap()[field] = json!(0);
         let error = parse_error(params);
-        let report = error.report();
-
-        assert_eq!(format!("{error}"), report);
-        assert!(report.contains(r"unknown field `攻撃\u{1b}[2J\r\n\t\u{7}\u{9b}31m\u{202e}`"));
-        assert!(!report.chars().any(char::is_control));
+        // The source keeps the library message unescaped.
         assert!(error.source().unwrap().to_string().contains(field));
+        let shown = shown(error);
+
+        assert!(shown.contains(r"unknown field `攻撃\u{1b}[2J\r\n\t\u{7}\u{9b}31m\u{202e}`"));
+        assert!(!shown.chars().any(char::is_control));
     }
 }
 
 #[test]
-fn report_escapes_io_errors_and_preserves_readable_text() {
+fn shown_escapes_io_errors_and_preserves_readable_text() {
     let error = Error::from(ParseError::Read(std::io::Error::other(
         "device disconnected: 日本語\n\u{1b}]0;FORGED TITLE\u{7}",
     )));
     assert_eq!(
-        error.report(),
+        shown(error),
         r"failed to read params: device disconnected: 日本語\n\u{1b}]0;FORGED TITLE\u{7}"
     );
-    assert_eq!(error.to_string(), error.report());
-    let plain = Error::from(ParseError::TooLarge);
-    assert_eq!(plain.report(), plain.to_string());
 }
 
 #[test]
-fn report_preserves_already_escaped_network_messages() {
+fn shown_preserves_already_escaped_network_messages() {
     for network in ["testnet4", "\u{1b}[2J", r#"test'net"\4"#] {
         let network_error = parse_error(fixture_with("/network", json!(network)));
         let expected = ConstraintError::UnsupportedNetwork(network.to_owned()).to_string();
-        assert_eq!(network_error.report(), expected);
         assert_eq!(network_error.to_string(), expected);
+        assert_eq!(shown(network_error), expected);
     }
 }
 
 #[test]
-fn report_preserves_already_escaped_serde_messages() {
-    use std::error::Error as _;
-
+fn shown_preserves_already_escaped_serde_messages() {
     for amount in ["95000", "\u{1b}[2J", r#"95'000"\sats"#] {
         let error = parse_error(fixture_with("/outputs/0/amount_sats", json!(amount)));
-        assert_eq!(
-            error.report(),
-            format!("invalid params JSON: {}", error.source().unwrap())
-        );
-        assert_eq!(error.to_string(), error.report());
+        let expected = format!("invalid params JSON: {}", error.source().unwrap());
+        assert_eq!(shown(error), expected);
     }
 }
 
 #[test]
-fn report_preserves_literal_quotes_and_backslashes() {
+fn shown_preserves_literal_quotes_and_backslashes() {
     let error = Error::from(ParseError::Read(std::io::Error::other(
         r#"can't read "params\file.json""#,
     )));
     assert_eq!(
-        error.report(),
+        shown(error),
         r#"failed to read params: can't read "params\file.json""#
     );
-    assert_eq!(error.to_string(), error.report());
 }
 
 #[test]
-fn display_preserves_messages_and_sources_for_all_error_groups() {
-    use std::error::Error as _;
-
+fn shown_preserves_messages_and_sources_for_all_error_groups() {
     for (error, expected) in [
         (
             Error::from(ParseError::TooLarge),
@@ -210,8 +238,8 @@ fn display_preserves_messages_and_sources_for_all_error_groups() {
             "output total overflows",
         ),
     ] {
-        assert_eq!(format!("{error}"), expected);
-        assert_eq!(error.report(), expected);
+        assert_eq!(error.to_string(), expected);
         assert!(error.source().is_none());
+        assert_eq!(shown(error), expected);
     }
 }

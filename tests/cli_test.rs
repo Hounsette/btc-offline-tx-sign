@@ -8,6 +8,8 @@
 #[allow(dead_code)]
 mod common;
 
+use std::error::Error as _;
+use std::ffi::OsStr;
 use std::fmt::Display;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
@@ -25,7 +27,8 @@ use rustix::termios::{LocalModes, tcgetattr};
 use serde_json::json;
 use zeroize::Zeroizing;
 
-use btc_offline_signer::cli::{Error, report, run};
+use btc_offline_signer::Error;
+use btc_offline_signer::cli::{self, run};
 use btc_offline_signer::payload::{self, ConstraintError};
 use btc_offline_signer::signing::{self, sign};
 
@@ -102,8 +105,10 @@ fn returns_open_params_for_missing_file() {
 
     assert!(matches!(
         &error,
-        Error::OpenParams { path, source } if *path == missing && source.kind() == io::ErrorKind::NotFound
+        Error::Cli(cli::Error::OpenParams { path, source }) if *path == missing && source.kind() == io::ErrorKind::NotFound
     ));
+    // Display already shows the cause, so it is not also a source.
+    assert!(error.source().is_none());
 }
 
 #[test]
@@ -127,7 +132,9 @@ fn returns_payload_for_invalid_params_before_prompting() {
 #[test]
 fn returns_terminal_for_read_failure() {
     let params = params_file("terminal-failure", fixture());
-    let failed = || io::Error::other("terminal disconnected");
+    // A forged window title and a fake second line.
+    let hostile = "\u{1b}]0;FORGED\u{7}\r\nerror: forged line";
+    let failed = || io::Error::other(hostile);
 
     for result in [
         run(
@@ -145,9 +152,12 @@ fn returns_terminal_for_read_failure() {
     ] {
         let error = result.unwrap_err();
         assert!(
-            matches!(&error, Error::Terminal(source) if source.to_string() == "terminal disconnected")
+            matches!(&error, Error::Cli(cli::Error::Terminal(source)) if source.to_string() == hostile)
         );
-        assert_eq!(report(&error), "terminal I/O failed: terminal disconnected");
+        assert_eq!(
+            error.to_string(),
+            r"terminal I/O failed: \u{1b}]0;FORGED\u{7}\r\nerror: forged line"
+        );
     }
 }
 
@@ -166,7 +176,10 @@ fn returns_cancelled_for_reply_other_than_yes() {
                 Ok(Zeroizing::new(KEY_1_WIF.to_owned()))
             },
         );
-        assert!(matches!(result, Err(Error::Cancelled)), "{reply:?}");
+        assert!(
+            matches!(result, Err(Error::Cli(cli::Error::Cancelled))),
+            "{reply:?}"
+        );
         assert!(!key_requested, "{reply:?}");
     }
 }
@@ -180,7 +193,7 @@ fn returns_cancelled_for_interrupted_key_prompt() {
         || Ok("yes\n".to_owned()),
         || Err(io::ErrorKind::Interrupted.into()),
     );
-    assert!(matches!(result, Err(Error::Cancelled)));
+    assert!(matches!(result, Err(Error::Cli(cli::Error::Cancelled))));
 }
 
 #[test]
@@ -197,8 +210,11 @@ fn returns_invalid_key_for_malformed_wif() {
     ] {
         let (result, terminal) = run_with("yes\n", wif);
         let error = result.unwrap_err();
-        assert!(matches!(error, Error::InvalidKey), "{wif:?}");
-        assert_eq!(report(&error), "private key is not a valid WIF");
+        assert!(
+            matches!(error, Error::Cli(cli::Error::InvalidKey)),
+            "{wif:?}"
+        );
+        assert_eq!(error.to_string(), "private key is not a valid WIF");
         assert_eq!(terminal, SUMMARY);
     }
 }
@@ -215,37 +231,49 @@ fn returns_invalid_key_for_noncanonical_compression_marker() {
     assert_eq!(wif(0x01), KEY_1_WIF);
 
     // The checksum is valid, and `PrivateKey::from_wif` alone accepts it.
-    assert!(matches!(key_error(&wif(0x02)), Error::InvalidKey));
+    assert!(matches!(
+        key_error(&wif(0x02)),
+        Error::Cli(cli::Error::InvalidKey)
+    ));
 }
 
 #[test]
 fn returns_signing_for_mainnet_key() {
     let mainnet = wif_with(|key| key.network = NetworkKind::Main);
-    assert!(matches!(
-        key_error(&mainnet),
-        Error::Signing(signing::Error::MainnetKey)
-    ));
+    let error = key_error(&mainnet);
+    assert!(matches!(error, Error::Signing(signing::Error::MainnetKey)));
+    assert_eq!(
+        error.to_string(),
+        "private key is for mainnet; only testnet keys are supported"
+    );
 }
 
 #[test]
 fn returns_signing_for_uncompressed_key() {
     let uncompressed = wif_with(|key| key.compressed = false);
+    let error = key_error(&uncompressed);
     assert!(matches!(
-        key_error(&uncompressed),
+        error,
         Error::Signing(signing::Error::UncompressedKey)
     ));
+    assert_eq!(
+        error.to_string(),
+        "private key is uncompressed; P2WPKH requires a compressed key"
+    );
 }
 
 #[test]
 fn returns_signing_for_key_mismatch() {
-    assert!(matches!(
-        key_error(KEY_2_WIF),
-        Error::Signing(signing::Error::KeyMismatch)
-    ));
+    let error = key_error(KEY_2_WIF);
+    assert!(matches!(error, Error::Signing(signing::Error::KeyMismatch)));
+    assert_eq!(
+        error.to_string(),
+        "private key does not control the previous output"
+    );
 }
 
 #[test]
-fn report_escapes_control_characters_from_params() {
+fn display_escapes_control_characters_from_params() {
     let mut params = fixture();
     params["\u{1b}[2J"] = json!(null);
     let params = params_file("control-characters", params);
@@ -257,7 +285,7 @@ fn report_escapes_control_characters_from_params() {
     )
     .unwrap_err();
 
-    let report = report(&error);
+    let report = error.to_string();
     assert!(!report.contains('\u{1b}'), "{report:?}");
     assert!(
         report.starts_with(r"invalid params JSON: unknown field `\u{1b}[2J`"),
@@ -266,7 +294,7 @@ fn report_escapes_control_characters_from_params() {
 }
 
 /// Runs the built binary with no terminal on stdin.
-fn signer(args: &[&str]) -> Output {
+fn signer(args: &[impl AsRef<OsStr>]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_btc-offline-signer"))
         .args(args)
         .stdin(Stdio::null())
@@ -310,19 +338,31 @@ fn binary_rejects_bad_arguments_with_empty_stdout() {
 fn binary_reports_failures_on_stderr_with_empty_stdout() {
     let missing = Path::new(env!("CARGO_TARGET_TMPDIR")).join("binary-missing.json");
     let invalid = params_file("binary-invalid", fixture_with("/network", json!("bitcoin")));
+    let prev_tx = fixture()["inputs"][0]["prev_tx"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let trailing = fixture_with("/inputs/0/prev_tx", json!(format!("{prev_tx}00")));
+    let trailing = params_file("binary-trailing-bytes", trailing);
     let valid = params_file("binary-valid", fixture_with_change());
 
     for (params, message) in [
         (
             &missing,
             format!(
-                "error: failed to open params file {}: No such file or directory (os error 2)\n",
-                missing.display()
+                "error: failed to open params file {missing:?}: No such file or directory (os error 2)\n"
             ),
         ),
         (
             &invalid,
             "error: unsupported network \"bitcoin\"; only testnet is supported\n".to_owned(),
+        ),
+        // Nested errors show each cause once.
+        (
+            &trailing,
+            "error: prev_tx is not a valid transaction: decoding error: attempted to decode \
+             object from an iterator that yielded too many bytes\n"
+                .to_owned(),
         ),
         // Piped stdin cannot confirm, so the key is never requested.
         (
@@ -335,6 +375,25 @@ fn binary_reports_failures_on_stderr_with_empty_stdout() {
         assert!(output.stdout.is_empty());
         assert_eq!(stderr(&output), message);
     }
+}
+
+#[test]
+fn binary_escapes_hostile_params_path() {
+    use std::os::unix::ffi::OsStrExt;
+
+    // ESC, CR, LF, and a byte that is not UTF-8.
+    let name = OsStr::from_bytes(b"missing-\x1b[2J\r\n\xff.json");
+    let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(name);
+    let output = signer(&[OsStr::new("--params"), path.as_os_str()]);
+
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty());
+    // One line: the newline in the path is escaped too.
+    let expected = format!(
+        r#"error: failed to open params file "{dir}/missing-\u{{1b}}[2J\r\n\xFF.json": No such file or directory (os error 2)"#,
+        dir = env!("CARGO_TARGET_TMPDIR"),
+    );
+    assert_eq!(stderr(&output), format!("{expected}\n"));
 }
 
 /// A new pseudo-terminal that never becomes this process's controlling terminal.

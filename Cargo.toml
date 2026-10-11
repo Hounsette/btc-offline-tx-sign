@@ -25,6 +25,7 @@ panic = "deny"
 todo = "deny"
 dbg_macro = "deny"
 print_stdout = "deny"             # stdout is reserved for the signed hex
+print_stderr = "deny"             # errors are printed only by main's fail()
 float_arithmetic = "deny"         # no floats near money
 arithmetic_side_effects = "deny"  # forces checked math
 mod_module_files = "deny"         # foo.rs beside foo/, never foo/mod.rs
