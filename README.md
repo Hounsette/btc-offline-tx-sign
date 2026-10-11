@@ -1,51 +1,47 @@
 # btc-offline-signer
 
-An air-gapped command-line tool that signs Bitcoin transactions offline. It reads a transaction intent (`params.json`) and a BIP38-encrypted keystore, prompts for the passphrase, and prints the signed transaction hex for broadcast from an online machine.
+A Rust CLI for creating a signed Bitcoin transaction without internet access. Built for the Coincheck interview assignment.
 
-> **Status:** early development. The signer is not functional yet.
+**Status:** scaffold only (`main` is empty). Signing, tests, and broadcast proof are not implemented yet.
 
-## Prerequisites
+## Assignment
 
-- **Rust** stable 1.85 or newer (the project uses edition 2024), with `clippy` and `rustfmt`:
+- Signing must work offline.
+- Submit a GitHub/GitLab repository and a URL showing a successful testnet or mainnet broadcast.
+- Priorities: readability, maintainability, and understanding of the language/libraries. Tests and Bitcoin knowledge are valuable; feature count is not a priority.
 
-  ```sh
-  rustup component add clippy rustfmt
-  ```
+## Build and checks
 
-- **GNU make**
-- **cargo-audit** (optional, for `make audit`): `cargo install cargo-audit`
-
-## Build
-
-From the repository root:
+Requires stable Rust 1.85+ with `rustfmt` and `clippy`, plus GNU make.
 
 ```sh
-make build
+make          # format check, clippy, tests
+make build    # checks, then release build
 ```
 
-`make build` first runs the formatting check, clippy, and the test suite, and only builds if all three pass. The binary is written to `target/release/btc-offline-signer`.
+The current binary is `target/release/btc-offline-signer`. It does nothing yet. `make fmt` formats code; `make audit` requires cargo-audit. Commit `Cargo.lock`; builds use `--locked`.
 
-**Building for the offline machine:** build on an online machine (cargo downloads dependencies from crates.io), then copy the binary to the offline signer. It must have the same OS and CPU architecture. The offline machine doesn't need Rust installed.
+## Planned usage
 
-## Development
+```sh
+./target/release/btc-offline-signer --params params.json > signed.hex
+```
 
-| Command | What it does |
-|---|---|
-| `make` | Runs every check: `cargo fmt --check`, clippy with warnings as errors, and the tests |
-| `make build` | Runs every check, then builds the release binary |
-| `make test` | Runs the tests only |
-| `make lint` | Runs clippy only |
-| `make fmt` | Formats the code in place |
-| `make audit` | Scans dependencies for known vulnerabilities |
-| `make clean` | Removes build output |
+The signer will validate the payload, show the destination(s), amounts, and fee on stderr, and require confirmation. It will then read one compressed testnet private key in WIF format through a hidden terminal prompt. Never supply the key in arguments or commit a funded key.
 
-Run `make` before every commit. The lint rules live in `Cargo.toml` and `clippy.toml`; see [Docs/Coding_Style.md](Docs/Coding_Style.md) for why each one exists.
+Scope: one P2WPKH input, one recipient, optional explicit change, testnet only. Full previous-transaction data enables offline verification. See the [input format](Docs/Technical_Specification.md#input).
 
-### Dependencies and `Cargo.lock`
+## Demonstration
 
-Every `make` target runs cargo with `--locked`, so builds use exactly the dependency versions recorded in `Cargo.lock`. After adding or changing a dependency in `Cargo.toml`, run `cargo check` once to update `Cargo.lock`, then commit both files together.
+Use a fresh disposable testnet key. Prepare the payload online, sign on a disconnected machine, then transfer only the signed hex back online to broadcast. Verify confirmation, destinations, amounts, and fee.
+
+**Broadcast proof:** pending. Before submission, replace this with the confirmed transaction's explorer URL, the tested network, build/run commands, and a short note on how signing was isolated from the network. Do not publish the private key or terminal input.
 
 ## Documentation
 
-- [Technical Specification](Docs/Technical_Specification.md): what the signer does and its security safeguards
-- [Coding Style Guide](Docs/Coding_Style.md): how the code is written (test-first, readability, lint rules)
+- [Specification](Docs/Technical_Specification.md): behavior and input format.
+- [Checklist](Docs/Roadmap.md): remaining implementation and submission work.
+- [Decisions](Docs/Decisions.md): scope and tradeoffs.
+- [Coding conventions](Docs/Coding_Style.md): a few rules for readable, safe code.
+
+This is an interview prototype, not a production wallet. It does not establish whether an input is confirmed or still unspent; the broadcasting node checks chain state. Never use mainnet keys or funds.
