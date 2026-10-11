@@ -13,6 +13,7 @@ lint:
 
 test:
 	cargo test --locked
+	python3 tests/cli_test.py
 
 build: check
 	cargo build --release --locked

@@ -12,12 +12,15 @@ A Rust CLI for creating a signed Bitcoin transaction without internet access. Bu
 
 ## Build and checks
 
-Requires a Unix-like OS (tested on Linux) and stable Rust 1.85+ with `rustfmt` and `clippy`, plus GNU make.
+Requires a Unix-like OS (tested on Linux) and stable Rust 1.85+ with `rustfmt` and `clippy`, plus GNU make and Python 3.9+ for the tests.
 
 ```sh
 make          # format check, clippy, tests
+make test     # Rust and Python tests
 make build    # checks, then release build
 ```
+
+The Python tests run the debug binary on a pseudo-terminal: errors, cancellation, bad keys, hidden key input, and signing. Run them alone with `python3 tests/cli_test.py`.
 
 The binary is `target/release/btc-offline-signer`. `make fmt` formats code; `make audit` requires cargo-audit. Commit `Cargo.lock`; builds use `--locked`.
 
