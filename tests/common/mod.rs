@@ -9,7 +9,8 @@ use serde_json::{Value, json};
 
 use btc_offline_signer::payload::{Error, ParseError, Payment, parse};
 
-/// Script of public test key 1; the specification's fixture both spends from and pays to it.
+/// Public test key 1; the specification's fixture both spends from and pays to it.
+pub(crate) const KEY_1_ADDRESS: &str = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx";
 pub(crate) const KEY_1_SCRIPT: &str = "0014751e76e8199196d454941c45d1b3a323f1433bd6";
 /// BIP84's first receiving key hash, encoded for testnet.
 pub(crate) const RECIPIENT_ADDRESS: &str = "tb1qcr8te4kr609gcawutmrza0j4xv80jy8zmfp6l0";
@@ -29,6 +30,17 @@ pub(crate) fn fixture_with(pointer: &str, value: Value) -> Value {
     let mut params = fixture();
     *params.pointer_mut(pointer).unwrap() = value;
     params
+}
+
+/// The fixture paying 60,000 sats to the recipient and 35,000 sats of change back to key 1.
+pub(crate) fn fixture_with_change() -> Value {
+    fixture_with(
+        "/outputs",
+        json!([
+            {"address": RECIPIENT_ADDRESS, "amount_sats": 60_000},
+            {"address": KEY_1_ADDRESS, "amount_sats": 35_000},
+        ]),
+    )
 }
 
 /// The fixture with an edited previous transaction, re-encoded with a matching txid.

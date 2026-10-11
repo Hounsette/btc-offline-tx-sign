@@ -35,15 +35,15 @@ Target behavior for the interview submission; current implementation status is i
 
 Verify `prev_tx` decodes completely, its txid matches `txid`, and output `vout` exists with a P2WPKH script. Read its amount from that output; calculate the fee as input amount minus output totals. Input amount, fee, and public key are not separate payload fields.
 
-Both output addresses are supplied explicitly. The signer never invents change; if two outputs are present, require the second output's script to match the signing key's P2WPKH script.
+Both output addresses are supplied explicitly. The signer never invents change; if two outputs are present, require the second output's script to match the spent output's script. The key must control that script, so change can only return to the signing key, and foreign change is rejected before the key is requested.
 
 ## Validation and signing
 
 1. Reject files over 16 MiB, malformed/duplicate/unknown JSON fields, unsupported networks, and invalid input/output counts.
-2. Verify the previous output; check destination checksums, network, and P2WPKH type.
+2. Verify the previous output; check destination checksums, network, and P2WPKH type, and that any change returns to the spent script.
 3. Use integer satoshis and checked arithmetic. Reject zero outputs, amounts/totals above Bitcoin's maximum supply, overspending, and fees above 1,000,000 sats (the exercise's fixed fee cap).
 4. Show every destination and amount, input total, and fee on stderr. Require terminal input exactly `yes`; cancellation, EOF, or other input aborts.
-5. Read the WIF without echo. Require a compressed testnet key matching the verified previous-output script; also verify change ownership when present.
+5. Read the WIF without echo. Require a compressed testnet key matching the verified previous-output script.
 6. Sign using the verified amount/script. Serialize the complete transaction and print its hex plus one newline to stdout, once.
 
 Errors go to stderr with a nonzero exit and empty stdout. `--help` is informational. Keep secrets out of errors and logs; zeroize owned input buffers and document any library copies that cannot be reliably cleared.

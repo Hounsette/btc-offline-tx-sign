@@ -18,8 +18,8 @@ Complete one working path before adding features. The [specification](Technical_
 
 ## BTCSIGN-003: Add explicit change
 
-- [ ] Support a second output; require it to belong to the signing key.
-- [ ] Test recipient/change amounts, fee calculation, foreign change rejection, and signature invalidation after changing either output.
+- [x] Support a second output; require it to belong to the signing key.
+- [x] Test recipient/change amounts, fee calculation, foreign change rejection, and signature invalidation after changing either output.
 
 ## BTCSIGN-004: Complete the offline CLI
 

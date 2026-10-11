@@ -46,7 +46,7 @@ fn messages_name_the_rejected_values() {
     );
     assert_eq!(
         ConstraintError::OutputCount(0).to_string(),
-        "expected exactly one output, found 0"
+        "expected one or two outputs, found 0"
     );
     assert_eq!(
         PrevTxError::TxidMismatch {
@@ -79,6 +79,10 @@ fn messages_name_the_rejected_values() {
     assert_eq!(
         OutputError::AmountAboveMaxMoney(sats(ABOVE_MAX_MONEY_SATS)).to_string(),
         "output amount 2100000000000001 sats exceeds the maximum supply"
+    );
+    assert_eq!(
+        OutputError::ForeignChange.to_string(),
+        "change output must pay back to the address being spent"
     );
     assert_eq!(
         BalanceError::Overspend {
