@@ -12,7 +12,13 @@ A Rust CLI for creating a signed Bitcoin transaction without internet access. Bu
 
 ## Build and checks
 
-Requires a Unix-like OS (tested on Linux) and stable Rust 1.85+ with `rustfmt` and `clippy`, plus GNU make and Python 3.9+ for the tests.
+Requires a Unix-like OS (tested on Linux), Rust installed through rustup, GNU make, and Python 3.9+ for the tests. [rust-toolchain.toml](rust-toolchain.toml) selects Rust 1.98.1 with `rustfmt` and `clippy`; Cargo rejects compilers older than 1.98.1. Update the toolchain pin and `package.rust-version` together when changing the required compiler version.
+
+Install the pinned toolchain while online before building:
+
+```sh
+rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
+```
 
 ```sh
 make          # format check, clippy, tests
