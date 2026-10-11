@@ -1,13 +1,13 @@
 # Completion Checklist
 
-Complete one working path before adding features. The [specification](Technical_Specification.md) defines the scope; all implementation below is pending.
+Complete one working path before adding features. The [specification](Technical_Specification.md) defines the scope.
 
 ## BTCSIGN-001: Validate the payload
 
-- [ ] Read bounded JSON; reject duplicate/unknown fields and unsupported shapes.
-- [ ] Verify previous transaction txid, output index, amount, and script.
-- [ ] Check testnet addresses, counts, integer amounts, totals, and fee cap.
-- [ ] Test a valid fixture plus malformed input, wrong txid/vout/script/network, invalid amounts, overspending, and excessive fees. Boundary tests cover the chosen limits.
+- [x] Read bounded JSON; reject duplicate/unknown fields and unsupported shapes.
+- [x] Verify previous transaction txid, output index, amount, and script.
+- [x] Check testnet addresses, counts, integer amounts, totals, and fee cap.
+- [x] Test a valid fixture plus malformed input, wrong txid/vout/script/network, invalid amounts, overspending, and excessive fees. Boundary tests cover the chosen limits.
 
 ## BTCSIGN-002: Sign one input and one output
 

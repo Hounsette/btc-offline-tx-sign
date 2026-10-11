@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+bitcoin = { version = "0.32.102", features = ["serde"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.152"
+thiserror = "2.0.21"
 
 [lints.rust]
 unsafe_code = "forbid"
@@ -17,6 +21,7 @@ dbg_macro = "deny"
 print_stdout = "deny"             # stdout is reserved for the signed hex
 float_arithmetic = "deny"         # no floats near money
 arithmetic_side_effects = "deny"  # forces checked math
+mod_module_files = "deny"         # foo.rs beside foo/, never foo/mod.rs
 
 [profile.release]
 overflow-checks = true            # backstop in case checked math is missed
