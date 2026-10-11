@@ -2,7 +2,7 @@
 
 A Rust CLI for creating a signed Bitcoin transaction without internet access. Built for the Coincheck interview assignment.
 
-**Status:** payload validation ([src/payload.rs](src/payload.rs)), signing with optional change ([src/signing.rs](src/signing.rs)), and the terminal flow ([src/cli.rs](src/cli.rs)) are implemented and tested ([tests/](tests/)). The broadcast proof is pending.
+**Status:** payload validation ([src/payload.rs](src/payload.rs)), signing with optional change ([src/signing.rs](src/signing.rs)), and the terminal flow ([src/cli.rs](src/cli.rs)) are implemented and tested ([tests/](tests/)). A Testnet3 transaction is confirmed; see the [broadcast proof](testnet_test/broadcast-proof.md).
 
 ## Assignment
 
@@ -42,7 +42,7 @@ Scope: one P2WPKH input, one recipient, optional explicit change, testnet only. 
 
 Use a fresh disposable testnet key. Prepare the payload online, sign on a disconnected machine, then transfer only the signed hex back online to broadcast. Verify confirmation, destinations, amounts, and fee.
 
-**Broadcast proof:** pending. Before submission, replace this with the confirmed transaction's explorer URL, the tested network, build/run commands, and a short note on how signing was isolated from the network. Do not publish the private key or terminal input.
+**Broadcast proof:** [Confirmed Bitcoin Testnet3 transaction](https://blockstream.info/testnet/tx/b12dcfb1aedbf839ede0469e5c065ef0460769a2474766bbb216bdea8b9291bc). It returned 192,693 sats to the sending address with a 200-sat fee. The [demonstration record](testnet_test/broadcast-proof.md) includes the funding transaction, payload, signed hex, and build/sign/broadcast commands. Network isolation during signing was not recorded for this run.
 
 ## Documentation
 

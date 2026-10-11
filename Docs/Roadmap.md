@@ -31,11 +31,11 @@ Complete one working path before adding features. The [specification](Technical_
 
 ## BTCSIGN-005: Demonstrate and submit
 
-- [ ] Generate a fresh disposable testnet key and fund its P2WPKH address.
-- [ ] Fetch the funding transaction online and create the payload.
-- [ ] Build and sign with networking disconnected; record the method and tested environment.
-- [ ] Broadcast from an online machine and obtain confirmation. Check destinations, amounts, and fee.
-- [ ] Put the explorer URL and reproducible instructions in the README; never publish the key.
+- [x] Generate a fresh disposable testnet key and fund its P2WPKH address.
+- [x] Fetch the funding transaction online and create the payload.
+- [x] Build and sign with networking disconnected; record the method and tested environment.
+- [x] Broadcast from an online machine and obtain confirmation. Check destinations, amounts, and fee.
+- [x] Put the explorer URL and reproducible instructions in the README; never publish the key.
 - [ ] Push to GitHub or GitLab and check that a fresh checkout builds and tests successfully.
 - [ ] Submit the repository link and broadcast-result URL. Do not submit with the proof still marked pending.
 
