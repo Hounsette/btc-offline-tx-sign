@@ -4,12 +4,6 @@ A Rust CLI for creating a signed Bitcoin transaction without internet access. Bu
 
 **Status:** payload validation ([src/payload.rs](src/payload.rs)), signing with optional change ([src/signing.rs](src/signing.rs)), and the terminal flow ([src/cli.rs](src/cli.rs)) are implemented and tested ([tests/](tests/)). A Testnet3 transaction is confirmed; see the [broadcast proof](testnet_test/broadcast-proof.md).
 
-## Assignment
-
-- Signing must work offline.
-- Submit a GitHub/GitLab repository and a URL showing a successful testnet or mainnet broadcast.
-- Priorities: readability, maintainability, and understanding of the language/libraries. Tests and Bitcoin knowledge are valuable; feature count is not a priority.
-
 ## Build and checks
 
 Requires a Unix-like OS (tested on Linux), Rust installed through rustup, GNU make, and Python 3.9+ for the tests. [rust-toolchain.toml](rust-toolchain.toml) selects Rust 1.98.1 with `rustfmt` and `clippy`; Cargo rejects compilers older than 1.98.1. Update the toolchain pin and `package.rust-version` together when changing the required compiler version.
@@ -57,4 +51,4 @@ Use a fresh disposable testnet key. Prepare the payload online, sign on a discon
 - [Decisions](docs/decisions.md): scope and tradeoffs.
 - [Coding conventions](docs/coding-style.md): a few rules for readable, safe code.
 
-This is an interview prototype, not a production wallet. It does not establish whether an input is confirmed or still unspent; the broadcasting node checks chain state. Never use mainnet keys or funds.
+This is a prototype, not a production wallet. It does not establish whether an input is confirmed or still unspent; the broadcasting node checks chain state. Never use mainnet keys or funds.
