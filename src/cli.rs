@@ -2,7 +2,7 @@
 
 use std::fs::File;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use bitcoin::consensus::encode::serialize_hex;
 use bitcoin::{Address, Network, PrivateKey, Script};
@@ -11,21 +11,9 @@ use zeroize::Zeroizing;
 use crate::payload::{self, Payment};
 use crate::signing;
 
-/// Failures of the command-line flow itself. The CLI prints them as part of [`crate::Error`].
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("failed to open params file {path:?}")]
-    OpenParams { path: PathBuf, source: io::Error },
-    #[error("terminal I/O failed")]
-    Terminal(#[source] io::Error),
-    #[error("signing cancelled")]
-    Cancelled,
-    // No source: base58 errors can quote characters of the key.
-    #[error("private key is not a valid WIF")]
-    InvalidKey,
-    #[error("failed to write the signed transaction")]
-    WriteTransaction(#[source] io::Error),
-}
+mod error;
+
+pub use error::Error;
 
 /// Validates the payment in `params` and shows it on `terminal`. Once `read_reply` returns the
 /// line `yes`, signs with the WIF that `read_key` prompts for and returns the transaction hex.

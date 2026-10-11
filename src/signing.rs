@@ -2,7 +2,7 @@
 
 use bitcoin::absolute::LockTime;
 use bitcoin::secp256k1::{Message, Secp256k1};
-use bitcoin::sighash::{EcdsaSighashType, P2wpkhError, SighashCache};
+use bitcoin::sighash::{EcdsaSighashType, SighashCache};
 use bitcoin::transaction::Version;
 use bitcoin::{
     CompressedPublicKey, NetworkKind, PrivateKey, ScriptBuf, Sequence, Transaction, TxIn, Witness,
@@ -11,19 +11,9 @@ use bitcoin::{
 
 use crate::payload::Payment;
 
-/// Why a payment could not be signed with the given key.
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("private key is for mainnet; only testnet keys are supported")]
-    MainnetKey,
-    #[error("private key is uncompressed; P2WPKH requires a compressed key")]
-    UncompressedKey,
-    #[error("private key does not control the previous output")]
-    KeyMismatch,
-    // Unreachable and untested: the key check proves the script is P2WPKH, and input 0 exists.
-    #[error("failed to compute the signature hash")]
-    Sighash(#[from] P2wpkhError),
-}
+mod error;
+
+pub use error::Error;
 
 /// Builds the transaction for `payment` and signs its input with `key`.
 ///
