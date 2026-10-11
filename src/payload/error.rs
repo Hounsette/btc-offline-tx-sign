@@ -1,24 +1,95 @@
 //! Errors from reading and validating a payment payload.
 
+use std::fmt;
+use std::iter::successors;
+
 use bitcoin::address::NetworkUnchecked;
 use bitcoin::consensus::encode::FromHexError;
 use bitcoin::{Address, Amount, Txid};
 
 use super::{MAX_FEE, MAX_PARAMS_BYTES};
 
-/// Why a payload was rejected. Library details are in `source()`; report the whole chain.
-#[derive(Debug, thiserror::Error)]
+/// Why a payload was rejected. Display includes the full chain, escaped for terminal output.
+#[derive(Debug)]
 pub enum Error {
-    #[error(transparent)]
-    Parse(#[from] ParseError),
-    #[error(transparent)]
-    Constraints(#[from] ConstraintError),
-    #[error(transparent)]
-    PrevTx(#[from] PrevTxError),
-    #[error(transparent)]
-    Output(#[from] OutputError),
-    #[error(transparent)]
-    Balance(#[from] BalanceError),
+    Parse(ParseError),
+    Constraints(ConstraintError),
+    PrevTx(PrevTxError),
+    Output(OutputError),
+    Balance(BalanceError),
+}
+
+impl Error {
+    fn inner(&self) -> &(dyn std::error::Error + 'static) {
+        match self {
+            Self::Parse(error) => error,
+            Self::Constraints(error) => error,
+            Self::PrevTx(error) => error,
+            Self::Output(error) => error,
+            Self::Balance(error) => error,
+        }
+    }
+
+    /// Formats the full error chain with control characters escaped for terminal output.
+    /// Preserves quotes and backslashes in already formatted messages.
+    /// Original errors remain available through `source()` and must not be printed directly.
+    pub fn report(&self) -> String {
+        // Start at the inner error: formatting self would recurse through Display.
+        let chain = successors(Some(self.inner()), |error| error.source())
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(": ");
+        let mut escaped = String::with_capacity(chain.len());
+        for c in chain.chars() {
+            match c {
+                '"' | '\'' | '\\' => escaped.push(c),
+                c => escaped.extend(c.escape_debug()),
+            }
+        }
+        escaped
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.report())
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.inner().source()
+    }
+}
+
+impl From<ParseError> for Error {
+    fn from(error: ParseError) -> Self {
+        Self::Parse(error)
+    }
+}
+
+impl From<ConstraintError> for Error {
+    fn from(error: ConstraintError) -> Self {
+        Self::Constraints(error)
+    }
+}
+
+impl From<PrevTxError> for Error {
+    fn from(error: PrevTxError) -> Self {
+        Self::PrevTx(error)
+    }
+}
+
+impl From<OutputError> for Error {
+    fn from(error: OutputError) -> Self {
+        Self::Output(error)
+    }
+}
+
+impl From<BalanceError> for Error {
+    fn from(error: BalanceError) -> Self {
+        Self::Balance(error)
+    }
 }
 
 /// Reading the bounded payload and decoding its JSON structure.

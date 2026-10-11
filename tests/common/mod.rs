@@ -1,7 +1,6 @@
 //! Shared helpers and synthetic fixtures using public test keys. Never fund these keys.
 
 use std::fmt::Display;
-use std::iter::successors;
 
 use bitcoin::consensus::encode::{deserialize_hex, serialize_hex};
 use bitcoin::{Address, ScriptBuf, Transaction};
@@ -83,14 +82,4 @@ pub(crate) fn assert_json_rejected(params: impl Display, reason: &str) {
         matches!(&error, Error::Parse(ParseError::Json(source)) if source.to_string().contains(reason)),
         "expected {reason:?} in {error:?}"
     );
-}
-
-/// The error and its sources joined as the CLI will report them.
-pub(crate) fn report(error: &Error) -> String {
-    successors(Some(error as &dyn std::error::Error), |error| {
-        error.source()
-    })
-    .map(ToString::to_string)
-    .collect::<Vec<_>>()
-    .join(": ")
 }
