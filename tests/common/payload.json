@@ -1,0 +1,16 @@
+{
+  "network": "testnet",
+  "inputs": [
+    {
+      "txid": "71e3be4e5b89d4263d5902a50180ea5b660a3af3ee8894aaa024ec0f2391a0f6",
+      "vout": 0,
+      "prev_tx": "020000000111111111111111111111111111111111111111111111111111111111111111110000000000ffffffff01a086010000000000160014751e76e8199196d454941c45d1b3a323f1433bd600000000"
+    }
+  ],
+  "outputs": [
+    {
+      "address": "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
+      "amount_sats": 95000
+    }
+  ]
+}
